@@ -170,14 +170,18 @@ def category(keyword: str) -> str:
     return next((name for name, pat in CATEGORIES if re.search(pat, k)), "other")
 
 
-def person_patterns(name: str) -> tuple[re.Pattern, re.Pattern]:
-    """(strong, clause): strong proves the page is about this person; clause attributes a statement."""
+def name_parts(name: str) -> tuple[str, str, list[str]]:
+    """(first, surname, initials-parts). Initials skip particles ("Ruy Lyra da Silva Filho" -> RLSF);
+    the surname skips suffixes too (Filho, Júnior, Jr)."""
     parts = name.split()
-    first = parts[0]
-    # Initials skip particles ("Ruy Lyra da Silva Filho" -> RLSF); the surname skips suffixes too.
     core = [p for p in parts if p.lower() not in PARTICLES]
     named = [p for p in core if p.lower().rstrip(".") not in SUFFIXES]
-    last = named[-1] if len(named) > 1 else parts[-1]
+    return parts[0], (named[-1] if len(named) > 1 else parts[-1]), core
+
+
+def person_patterns(name: str) -> tuple[re.Pattern, re.Pattern]:
+    """(strong, clause): strong proves the page is about this person; clause attributes a statement."""
+    first, last, core = name_parts(name)
     L, F = re.escape(last), re.escape(first)
     strong = re.compile(
         rf"\b{F}\s+(?:\S+\s+){{0,3}}{L}\b|\b{first[0]}\.\s*(?:[A-Z]\.\s*){{0,3}}{L}\b|\b{L},\s+{F}\b"
@@ -227,14 +231,26 @@ def keyword_for(seg: str, pos: int) -> str:
     return m.group(1).lower()
 
 
-def person_statements(text: str, name: str) -> list[tuple[str, str]]:
-    """(statement, quote) pairs about this person. A statement counts when it:
-      * names the person (surname or initials) in its own segment, or
+ATTRIBUTION = ("full name", "surname", "initials", "continuation", "pronoun")  # strongest first
+
+
+def person_statements(text: str, name: str) -> list[tuple[str, str, str]]:
+    """(statement, quote, matched_by) triples about this person. A statement counts when it:
+      * names the person in its own segment ("full name", "surname" or "initials"), or
       * continues their sentence after a semicolon without a new subject
-        ("Dr X has received fees from A; personal fees from B"), or
-      * starts with he/she/they right after a sentence about them.
+        ("Dr X has received fees from A; personal fees from B") -> "continuation", or
+      * starts with he/she/they right after a sentence about them -> "pronoun".
     The quote is the whole sentence when short enough, else the clause."""
-    _, clause_pat = person_patterns(name)
+    strong, clause_pat = person_patterns(name)
+    surname = re.compile(rf"\b{re.escape(name_parts(name)[1])}\b")
+
+    def matched_by(seg: str) -> str:
+        if strong.search(seg):
+            return "full name"
+        if clause_pat.search(seg):
+            return "surname" if surname.search(seg) else "initials"
+        return "pronoun" if PRONOUN_START.match(seg) else "continuation"
+
     out, prev_about = [], False
     for sent in split_sentences(text):
         sent_about = False
@@ -254,7 +270,7 @@ def person_statements(text: str, name: str) -> list[tuple[str, str]]:
                 else:
                     ours = False  # a later segment introduced someone else
                 if ours:
-                    out.append((seg, quote))
+                    out.append((seg, quote, matched_by(seg)))
                     sent_about = True
             carry = ours  # the next semicolon part continues whoever this part ended on
         prev_about = sent_about
@@ -270,7 +286,7 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
         text = page.get("text") or ""
         if not strong.search(text):
             continue  # page isn't demonstrably about this person
-        for seg, quote in person_statements(text, name):
+        for seg, quote, how in person_statements(text, name):
             kw = TIE.search(seg)
             if not kw or (NEGATION.search(seg) and not EXCEPTION.search(seg)):
                 continue
@@ -283,17 +299,23 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
                 # Merge spellings of one company ("AstraZeneca" / "Astra Zeneca", "Lilly" / "Eli Lilly").
                 tie = next((t for t in ties if same_company(t["org"], org)), None)
                 if tie is None:
-                    tie = {"org": org, "relation": rel, "category": category(rel), "evidence": [], "aliases": []}
+                    tie = {"org": org, "relation": rel, "category": category(rel), "categories": [],
+                           "evidence": [], "aliases": []}
                     ties.append(tie)
+                if category(rel) not in tie["categories"]:
+                    tie["categories"].append(category(rel))
                 elif org != tie["org"] and org not in tie["aliases"]:
                     tie["aliases"].append(org)
                     if len(org) > len(tie["org"]):  # show the fullest spelling
                         tie["aliases"].append(tie["org"])
                         tie["aliases"].remove(org)
                         tie["org"] = org
-                if not any(ev["url"] == page.get("url") for ev in tie["evidence"]):
-                    tie["evidence"].append({"url": page.get("url"), "title": page.get("title"),
-                                            "api": page.get("api"), "quote": quote, "verified": True})
+                ev = next((e for e in tie["evidence"] if e["url"] == page.get("url")), None)
+                if ev is None:
+                    tie["evidence"].append({"url": page.get("url"), "title": page.get("title"), "api": page.get("api"),
+                                            "quote": quote, "verified": True, "matched_by": how})
+                elif ATTRIBUTION.index(how) < ATTRIBUTION.index(ev["matched_by"]):
+                    ev.update(quote=quote, matched_by=how)  # same page, stronger attribution: keep that one
     return ties
 
 

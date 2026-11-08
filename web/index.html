@@ -410,13 +410,32 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   background: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)); } }
 body { overflow-x: clip; } /* the full-bleed band must not cause sideways scroll; clip keeps the sticky nav working */
 
+/* ---------- reliability ---------- */
+.rel { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+  letter-spacing: .03em; margin-left: auto; border: 1.5px solid currentColor; white-space: nowrap; }
+.rel::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.rel.strong { color: var(--ok); background: var(--ok-soft); }
+.rel.moderate { color: var(--warn); background: var(--warn-soft); }
+.rel.weak { color: var(--flag); background: var(--flag-soft); }
+.coverage { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.coverage .rel { margin-left: 0; }
+details.why { border-top: 0; padding-top: 0; }
+details.why summary { min-height: 32px; margin: 0; font-size: 13px; }
+.factors { list-style: none; margin: 4px 0 6px; padding: 0; display: grid; gap: 6px; }
+.factors li { display: grid; grid-template-columns: 110px 90px 1fr; gap: 10px; align-items: center; font-size: 13px; }
+.factors .fname { font-weight: 700; color: var(--ink-2); }
+.factors .fbar { height: 8px; border-radius: 999px; background: var(--surface-solid); border: 1px solid var(--rule); overflow: hidden; }
+.factors .fbar i { display: block; height: 100%; background: var(--holo-text); }
+.factors .fnote { color: var(--muted); }
+@media (max-width: 520px) { .factors li { grid-template-columns: 1fr 70px; } .factors .fnote { grid-column: 1 / -1; } }
+
 /* Continuous (squircle) corners on every rounded rectangle and pill, where supported.
    Squircles look tighter than circular arcs at the same radius, so radii are bumped slightly.
    Circles (avatars, step bubbles, checkboxes, the theme button) keep border-radius: 50%. */
 @supports (corner-shape: squircle) {
   .card, .person, .tie, .cand, .op, .field, .eyebrow, .segmented, .segmented button, .btn, .chip, .tag,
   .tally span, .switch .track, .nav-links a.active::after, .input-card::before, .banner, .error-box, .empty-box,
-  .result-actions, .toast, .stp, .demo-badge, .demo-badge button, .kbd, .skel:not(.circle), .how-card .more .example {
+  .result-actions, .toast, .stp, .demo-badge, .demo-badge button, .kbd, .skel:not(.circle), .how-card .more .example, .rel, .factors .fbar {
     corner-shape: squircle;
   }
   .card { border-radius: 32px; } .person { border-radius: 26px; } .tie { border-radius: 24px; }
@@ -936,7 +955,8 @@ function summaryText() {
   const lines = [`Conflict Check: ${state.article?.url || "pasted article"}${state.demo ? " (demo, fictional data)" : ""}`, ""];
   for (const e of Object.values(state.results)) {
     lines.push(`${e.name}${e.affiliation ? ", " + e.affiliation : ""}: ${STATUS[e.status] || e.status}`);
-    for (const t of e.ties || []) lines.push(`  - ${t.org} (${t.category || t.relation}; ${t.related_to_story ? "named in this story" : "not named in this story"}): ${t.evidence[0]?.url || ""}`);
+    for (const t of e.ties || []) lines.push(`  - ${t.org} (${t.category || t.relation}; ${t.related_to_story ? "named in this story" : "not named in this story"}${t.reliability ? `; ${t.reliability.label} ${t.reliability.score}/100` : ""}): ${t.evidence[0]?.url || ""}`);
+    if (e.coverage) lines.push(`  Coverage: ${e.coverage.label} ${e.coverage.score}/100`);
   }
   let out = lines.join("\n");
   if ($("mask").checked) state.experts.forEach((e, i) => { if (e.name) { const parts = e.name.trim().split(/\s+/);
@@ -995,14 +1015,36 @@ document.addEventListener("keydown", ev => {
 function badge(op) {
   if (!op) return "";
   if (op.status !== "name_match") return `<div class="op"><small>CMS Open Payments: ${esc(op.note)}</small></div>`;
-  return `<div class="op"><b>$${op.total_usd.toLocaleString()}</b> in ${op.payments} payment${op.payments === 1 ? "" : "s"} from ${esc(op.payer)}
+  return `<div class="op"><b>$${op.total_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> in ${op.payments} payment${op.payments === 1 ? "" : "s"} from ${esc(op.payer)}
     (${esc(op.years.join(", "))}${op.top_natures.length ? "; " + esc(op.top_natures.join(", ")) : ""}) to a ${esc(op.specialty || "")} physician in ${esc(op.location)}, NPI ${esc(op.npi)}.
     <small>CMS Open Payments. ${esc(op.note)}</small></div>`;
 }
+const FACTOR_NAMES = { identity: "Identity", attribution: "Attribution", source: "Source", corroboration: "Corroboration",
+  wording: "Wording", recency: "Recency", organization: "Organization", pages: "Pages checked", channels: "Search channels" };
+function relPill(r, prefix = "") {
+  if (!r || r.score == null) return "";
+  return `<span class="rel ${esc(r.label.toLowerCase())}" title="${esc(prefix)}Reliability ${r.score}/100">${esc(prefix)}${esc(r.label)} · ${r.score}</span>`;
+}
+function relWhy(r, what) {
+  if (!r || !r.factors || !r.factors.length) return "";
+  const rows = r.factors.map(f => `<li><span class="fname">${esc(FACTOR_NAMES[f.key] || f.key)}</span>
+    <span class="fbar" aria-hidden="true"><i style="width:${Math.round(f.value * 100)}%"></i></span>
+    <span class="fnote">${mask(f.note)}</span></li>`).join("");
+  return `<details class="why"><summary>Why ${r.score}?</summary><ul class="factors">${rows}</ul>
+    ${r.bonus ? `<p class="hint">+${r.bonus} for a matching CMS Open Payments record.</p>` : ""}
+    <p class="hint">${esc(what)} Strong is 80+, Moderate 60–79. Equal scores are ordered by more websites, then better source, then the more serious kind of tie.</p></details>`;
+}
 function tieHtml(t, cls) {
-  const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}</span></blockquote>`).join("");
+  const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}${e.matched_by ? " · named by " + esc(e.matched_by) : ""}</span></blockquote>`).join("");
   const where = cls === "disc" ? "disclosed in article" : t.related_to_story ? "named in this story" : "not named in this story";
-  return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b><span class="tag">${esc(t.category || t.relation)}</span><span class="tag">${where}</span></div>${ev}${badge(t.open_payments)}</div>`;
+  return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b><span class="tag">${esc(t.category || t.relation)}</span><span class="tag">${where}</span>${relPill(t.reliability)}</div>${ev}${badge(t.open_payments)}
+    ${relWhy(t.reliability, "How much to trust this connection, from 0 to 100.")}</div>`;
+}
+function coverageHtml(e) {
+  const c = e.coverage; if (!c) return "";
+  const notes = c.factors.filter(f => f.key !== "identity").map(f => f.note).join(" · ");
+  return `<div class="coverage">${relPill(c, "Coverage: ")}<span class="hint">${esc(notes)}${e.status === "no_confirmed_connections" && c.label !== "Strong" ? ". A clean result with thin coverage is weak evidence of no ties." : ""}</span></div>
+    ${relWhy(c, "How thorough the search was.")}`;
 }
 function identityHtml(e) {
   const id = e.identity; if (!id) return "";
@@ -1038,7 +1080,7 @@ function cardHtml(e) {
     ${related.map(t => tieHtml(t, "")).join("")}
     ${other.length ? `<details><summary>${other.length} other connection${other.length === 1 ? "" : "s"}, not named in this story</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
     ${(e.disclosed || []).length ? `<details><summary>${e.disclosed.length} connection${e.disclosed.length === 1 ? "" : "s"} the article disclosed</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
-    ${e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
+    ${e.coverage ? coverageHtml(e) : e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
     ${actions.length ? `<div class="card-actions">${actions.join("")}</div>` : ""}
   </article>`;
 }

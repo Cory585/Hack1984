@@ -8,6 +8,7 @@ from .extract import Expert, extract_experts
 from .identity import identity_from_pick, resolve_identity
 from .openpayments import badge_for_tie
 from .session import Session
+from .reliability import rate_expert
 from .ties import classify_tie, find_ties
 
 MAX_EXPERTS = 5
@@ -100,8 +101,8 @@ def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: st
     out["pages_checked"] = len(pages)
     out["ties"] = [t for t in ties if not t["disclosed_in_article"]]
     out["disclosed"] = [t for t in ties if t["disclosed_in_article"]]
-    out["ties"].sort(key=lambda t: (not t["related_to_story"], t["org"]))
     out["status"] = "connections_found" if out["ties"] else "no_confirmed_connections"
+    rate_expert(out, pages)  # reliability score per tie, deterministic order, coverage rating
     return out
 
 

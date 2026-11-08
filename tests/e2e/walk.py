@@ -61,6 +61,17 @@ try:
     check("Open Payments badge shown", b.js("!!document.querySelector('.op b')"))
     b.js("document.getElementById('results-block').scrollIntoView()"); time.sleep(0.2); b.shot(SP + "/e2e-3-results.png")
 
+    # --- reliability ratings ---
+    card = "[data-card='Maren Okafor']"
+    okafor_rel = b.js("[...document.querySelectorAll(\"" + card + " .tie\")].map(t => [t.querySelector('b').textContent, (t.querySelector('.rel') || {}).textContent])")
+    check("every connection shows a reliability pill", okafor_rel and all(r[1] for r in okafor_rel), str(okafor_rel))
+    check("story-related connection listed first", okafor_rel and okafor_rel[0][0] == "Veltrix Pharmaceuticals", str(okafor_rel))
+    b.js("document.querySelector(\"" + card + " .tie details.why\").open = true")
+    check("'Why?' lists the seven factors", b.js("document.querySelector(\"" + card + " .tie details.why .factors\").children.length") == 7)
+    check("coverage rating shown", b.js("!!document.querySelector(\"" + card + " .coverage .rel\")"))
+    b.js("document.querySelector(\"" + card + "\").scrollIntoView()"); time.sleep(0.2); b.shot(SP + "/e2e-6-reliability.png")
+
+
     # --- pick a candidate ---
     b.js("document.querySelector('[data-card=\"Tobias Wren\"] button[data-orcid]').click()")
     check("picked expert re-checks in place", b.wait("document.querySelector('[data-card=\"Tobias Wren\"].pending')", 3))
