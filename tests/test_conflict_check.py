@@ -367,3 +367,44 @@ class TestNoSearchWithoutIdentity(unittest.TestCase):
         result = check_article(s, text=ARTICLE, experts=[{"name": "Maren Okafor", "affiliation": "Lakeside University"}])
         self.assertEqual(result["experts"][0]["status"], "identity_not_confirmed")
         self.assertTrue(calls and all("orcid.org" in u for u in calls))
+
+
+class TestLongAffiliation(unittest.TestCase):
+    def test_long_unit_falls_back_to_the_institution_prefix(self):
+        from conflict_check.identity import resolve_identity
+        asked = []
+
+        def fetch(method, url, headers, body):
+            import urllib.parse
+            q = urllib.parse.unquote_plus(url)
+            asked.append(q)
+            if 'affiliation-org-name:"University of Oxford"' in q:
+                return {"expanded-result": [{"orcid-id": "0000-0000-0000-0001", "given-names": "Ting",
+                                              "family-names": "Cai", "institution-name": ["University of Oxford"]}]}
+            return {"expanded-result": None}
+
+        r = resolve_identity(Session(cache_dir=None, fetcher=fetch), "Ting Cai",
+                             "University of Oxford Nuffield Department of Primary Care Health Sciences")
+        self.assertEqual(r["status"], "confirmed")
+        self.assertIn("University of Oxford", r["reason"])
+
+    def test_a_prefix_matching_several_people_stays_unconfirmed(self):
+        from conflict_check.identity import resolve_identity
+
+        def fetch(method, url, headers, body):
+            return {"expanded-result": [{"orcid-id": f"0000-0000-0000-000{i}", "given-names": "Ting",
+                                          "family-names": "Cai", "institution-name": ["University of Oxford"]}
+                                         for i in range(2)] if "affiliation-org-name" in url and "Nuffield" not in url
+                    else None}
+
+        r = resolve_identity(Session(cache_dir=None, fetcher=fetch), "Ting Cai",
+                             "University of Oxford Nuffield Department of Primary Care Health Sciences")
+        self.assertEqual(r["status"], "not_confirmed")
+
+
+class TestUnitAffiliation(unittest.TestCase):
+    def test_comma_separated_unit_name_keeps_the_institution(self):
+        text = ("\"Rare,\" said Dr. Maren Okafor, chief academic officer of the Heart, Vascular & Thoracic "
+                "Institute at Cleveland Clinic, who was not involved.")
+        e = {x.name: x for x in extract_experts(text)}["Maren Okafor"]
+        self.assertEqual(e.affiliation, "Cleveland Clinic")

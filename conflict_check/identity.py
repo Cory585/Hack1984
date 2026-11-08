@@ -51,6 +51,15 @@ def resolve_identity(s: Session, name: str, affiliation: str | None) -> dict:
     given, family = split_name(name)
     if affiliation:
         recs = _records(orcid_search(s, given, family, affiliation))
+        # An article often gives a long unit ("University of Oxford Nuffield Department of Primary Care ..."),
+        # which ORCID's institution field won't match. Retry with shorter prefixes ("University of Oxford");
+        # a prefix that is too general matches several people and so stays unconfirmed.
+        words = affiliation.split()
+        for n in range(len(words) - 1, 1, -1) if not recs and len(words) > 3 else ():
+            recs = _records(orcid_search(s, given, family, " ".join(words[:n])))
+            if recs:
+                affiliation = " ".join(words[:n])
+                break
         if len(recs) == 1:
             return {"status": "confirmed", "by": "orcid", "orcid": recs[0]["orcid"], "record": recs[0],
                     "reason": f"One ORCID record matches {name} at {affiliation}."}
