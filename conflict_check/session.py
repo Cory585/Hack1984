@@ -31,6 +31,10 @@ class MissingKey(Exception):
 
 RETRY_STATUS = {429, 500, 502, 503, 504}
 RETRIES = 2  # extra attempts after the first; every call here is an idempotent query
+# Open Payments lookups only add a badge to a tie that is already on screen, and the CMS API can hang for
+# 40 s: give up sooner and don't retry, so a slow lookup never holds the finished result back.
+SLOW_BADGE_API = "openpaymentsdata.cms.gov"
+BADGE_TIMEOUT = 20
 
 
 def urllib_fetcher(method: str, url: str, headers: dict, body: Any, timeout: int = 45,
@@ -40,14 +44,17 @@ def urllib_fetcher(method: str, url: str, headers: dict, body: Any, timeout: int
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    for attempt in range(RETRIES + 1):
+    badge = SLOW_BADGE_API in url
+    timeout = min(timeout, BADGE_TIMEOUT) if badge else timeout
+    retries = 0 if badge else RETRIES
+    for attempt in range(retries + 1):
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")[:300]
-            if e.code in RETRY_STATUS and attempt < RETRIES:
+            if e.code in RETRY_STATUS and attempt < retries:
                 try:
                     wait = min(float(e.headers.get("Retry-After", "")), 5.0)
                 except (TypeError, ValueError):
@@ -56,7 +63,7 @@ def urllib_fetcher(method: str, url: str, headers: dict, body: Any, timeout: int
                 continue
             raise RuntimeError(f"HTTP {e.code} from {url}: {detail}") from e
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
-            if attempt < RETRIES:  # dropped connection or timeout: try again
+            if attempt < retries:  # dropped connection or timeout: try again
                 sleep(0.5 * 2 ** attempt + random.uniform(0, 0.25))
                 continue
             raise RuntimeError(f"Could not reach {url}: {e}") from e

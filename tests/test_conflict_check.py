@@ -279,3 +279,24 @@ class TestRetries(unittest.TestCase):
         err, n, _ = self.run_fetch([self.http(401), b"{}"])
         self.assertIn("HTTP 401", str(err))
         self.assertEqual(n, 1)
+
+
+class TestBadgeTimeout(unittest.TestCase):
+    def test_open_payments_gets_a_short_timeout_and_no_retry(self):
+        import urllib.error
+        from unittest import mock
+        from conflict_check.session import urllib_fetcher
+        seen = []
+
+        def boom(req, timeout=0):
+            seen.append(timeout)
+            raise TimeoutError()
+
+        with mock.patch("urllib.request.urlopen", boom):
+            with self.assertRaises(RuntimeError):
+                urllib_fetcher("POST", "https://openpaymentsdata.cms.gov/api/1/x", {}, {}, sleep=lambda s: None)
+            self.assertEqual(seen, [20])  # one attempt, 20 s
+            seen.clear()
+            with self.assertRaises(RuntimeError):
+                urllib_fetcher("POST", "https://api.exa.ai/search", {}, {}, sleep=lambda s: None)
+            self.assertEqual(seen, [45, 45, 45])  # others keep 45 s and the retries
