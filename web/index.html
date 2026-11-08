@@ -1037,11 +1037,14 @@ function handle(ev, run) {
   if (ev.type === "start") { run.order = ev.experts; run.idx = 0; renderResults(); }
   else if (ev.type === "call") {
     state.calls.push(ev.call); renderCalls();
-    const name = run.order[run.idx], res = name && state.results[name];
-    if (res && res.status === "checking") {
-      const step = STEPS.find(s => s[2].includes(ev.call.api));
-      if (step) { res.progress = res.progress || {}; for (const s of STEPS) { if (s === step) break; res.progress[s[0]] = res.progress[s[0]] || "done"; }
-        res.progress[step[0]] = "active"; updateCard(name); }
+    // Experts are checked in parallel and calls don't say whose they are, so every card still checking advances.
+    const step = STEPS.find(s => s[2].includes(ev.call.api));
+    if (step) for (const name of run.order) {
+      const res = state.results[name];
+      if (res && res.status === "checking") {
+        res.progress = res.progress || {}; for (const s of STEPS) { if (s === step) break; res.progress[s[0]] = res.progress[s[0]] || "done"; }
+        res.progress[step[0]] = "active"; updateCard(name);
+      }
     }
   }
   else if (ev.type === "expert") { state.results[ev.expert.name] = ev.expert; run.idx++; updateCard(ev.expert.name); }
