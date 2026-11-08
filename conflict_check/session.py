@@ -40,11 +40,12 @@ BADGE_TIMEOUT = 20
 def urllib_fetcher(method: str, url: str, headers: dict, body: Any, timeout: int = 45,
                    sleep: Callable[[float], None] = time.sleep) -> Any:
     data = None
-    headers = {"User-Agent": "conflict-check/0.1", "Accept": "application/json", **headers}
+    badge = SLOW_BADGE_API in url
+    # The CMS edge (Akamai) answers 403 to some custom User-Agents, so its calls keep urllib's default.
+    headers = {**({} if badge else {"User-Agent": "conflict-check/0.1"}), "Accept": "application/json", **headers}
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    badge = SLOW_BADGE_API in url
     timeout = min(timeout, BADGE_TIMEOUT) if badge else timeout
     retries = 0 if badge else RETRIES
     for attempt in range(retries + 1):
