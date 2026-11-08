@@ -431,3 +431,41 @@ class TestUnitAffiliation(unittest.TestCase):
                 "Institute at Cleveland Clinic, who was not involved.")
         e = {x.name: x for x in extract_experts(text)}["Maren Okafor"]
         self.assertEqual(e.affiliation, "Cleveland Clinic")
+
+
+class TestIdentityRecall(unittest.TestCase):
+    def test_particles_stay_with_the_family_name(self):
+        from conflict_check.identity import split_name
+        self.assertEqual(split_name("Etienne de Villers-Sidani"), ("Etienne", "de Villers-Sidani"))
+        self.assertEqual(split_name("Ludwig van der Berg"), ("Ludwig", "van der Berg"))
+        self.assertEqual(split_name("Jane Doe"), ("Jane", "Doe"))
+        self.assertEqual(split_name("Madonna"), ("", "Madonna"))
+
+    def fetcher(self, institutions_by_orcid):
+        def fetch(method, url, headers, body):
+            if "api.openalex.org" in url:
+                for orcid, insts in institutions_by_orcid.items():
+                    if orcid in url:
+                        return {"affiliations": [{"institution": {"display_name": i}} for i in insts]}
+                raise RuntimeError("HTTP 404")
+            recs = [{"orcid-id": o, "given-names": "Ana", "family-names": "Lee", "institution-name": []}
+                    for o in institutions_by_orcid]
+            return {"num-found": len(recs), "expanded-result": recs if "AND affiliation" not in url and "affiliation-org" not in url else None}
+        return fetch
+
+    def test_openalex_confirms_the_one_candidate_whose_papers_list_the_institution(self):
+        from conflict_check.identity import resolve_identity
+        s = Session(cache_dir=None, fetcher=self.fetcher({"0000-0000-0000-0001": ["Stanford University"],
+                                                           "0000-0000-0000-0002": ["Other College"]}))
+        r = resolve_identity(s, "Ana Lee", "Stanford University")
+        self.assertEqual((r["status"], r["orcid"], r["by"]), ("confirmed", "0000-0000-0000-0001", "orcid+openalex"))
+
+    def test_openalex_does_not_confirm_when_two_candidates_match_or_none_do(self):
+        from conflict_check.identity import resolve_identity
+        both = Session(cache_dir=None, fetcher=self.fetcher({"0000-0000-0000-0001": ["Stanford University"],
+                                                              "0000-0000-0000-0002": ["Stanford University"]}))
+        self.assertEqual(resolve_identity(both, "Ana Lee", "Stanford University")["status"], "not_confirmed")
+        none = Session(cache_dir=None, fetcher=self.fetcher({"0000-0000-0000-0001": ["Other College"]}))
+        r = resolve_identity(none, "Ana Lee", "Stanford University")
+        self.assertEqual(r["status"], "not_confirmed")
+        self.assertEqual(len(r["candidates"]), 1)  # still offered for a human pick

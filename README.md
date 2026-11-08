@@ -17,7 +17,7 @@ python -m unittest                # offline tests (fictional fixtures)
 python tests/e2e/walk.py          # browser walk-through (needs Edge/Chrome and a running server)
 ```
 
-ORCID and CMS Open Payments are free public APIs and need no key. No keys at all? Click **Try the demo** in the app.
+ORCID, OpenAlex, the NPI registry and CMS Open Payments are free public APIs and need no key. No keys at all? Click **Try the demo** in the app.
 
 ## How it works
 
@@ -41,7 +41,7 @@ flowchart LR
 |---|---|---|
 | Load the article (URL or pasted text) | `pipeline.load_article` | Tavily extract |
 | Pull out quoted experts, their role and affiliation | `extract.py` | none, rule-based |
-| Confirm identity: exactly one ORCID record for name + affiliation, or a user pick re-checked against the surname | `identity.py` | ORCID public API |
+| Confirm identity: exactly one ORCID record for name + affiliation; else, if exactly one name match's papers list that institution, OpenAlex confirms it; or a user pick re-checked against the surname | `identity.py` | ORCID public API, OpenAlex |
 | Find evidence pages: research papers (conflict statements) and web bios | `pipeline.gather_pages` | Exa research-paper search, Tavily search + extract |
 | Extract ties: a clause naming the person, an organization and a tie keyword | `ties.find_ties` | none, rule-based |
 | Classify: disclosed in the article / related to this story / other | `ties.classify_tie` | none |
@@ -153,7 +153,7 @@ In the UI, each connection shows a pill (for example "Strong · 92"), and **Why 
 
 ## Safety rules (from the risk review)
 
-- **No identity, no ties.** If ORCID doesn't return exactly one match for name + affiliation, nothing is searched until a person picks the right record.
+- **No identity, no ties.** Identity needs exactly one ORCID match for name + affiliation, or exactly one name match whose papers list that institution (OpenAlex). Otherwise nothing is searched until a person picks the right record.
 - **No model states a tie.** A tie appears only if a fetched page has a clause naming both the person and the organization, and `verify_quote` confirms the quote is on that page.
 - **Open Payments only confirms.** It never creates a tie, because it matches on name and city, not employer. The badge shows location and NPI so a person can judge, and it's withheld if more than one clinician with that name was paid by the company.
 - **Declining is a valid result.** "No confirmed connections" and "Identity not confirmed" are normal outcomes.

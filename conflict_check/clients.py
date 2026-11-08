@@ -72,6 +72,21 @@ def orcid_person(s: Session, orcid: str) -> dict:
                      f"{ORCID}/{urllib.parse.quote(orcid)}/personal-details", {"Accept": "application/json"})
 
 
+OPENALEX = "https://api.openalex.org"
+
+
+def openalex_institutions(s: Session, orcid: str) -> list[str]:
+    """Institutions on this researcher's papers (OpenAlex). ORCID records often list none, so this is how a
+    sole name match gets corroborated. Empty when OpenAlex doesn't know the iD."""
+    try:
+        data = s.request("openalex", f"openalex author: {orcid}", "GET",
+                         f"{OPENALEX}/authors/{urllib.parse.quote('https://orcid.org/' + orcid, safe='')}", {})
+    except RuntimeError:  # 404 for an unknown iD, or a network error: no corroboration, never a failure
+        return []
+    return [a["institution"]["display_name"] for a in (data.get("affiliations") or [])
+            if (a.get("institution") or {}).get("display_name")]
+
+
 OPEN_PAYMENTS = "https://openpaymentsdata.cms.gov/api/1/datastore/query"
 OP_FIELDS = [
     "covered_recipient_npi", "covered_recipient_first_name", "covered_recipient_last_name",

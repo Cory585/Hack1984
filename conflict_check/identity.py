@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import re
 
-from .clients import orcid_person, orcid_search
+from .clients import openalex_institutions, orcid_person, orcid_search
 from .session import Session
 
+MAX_CORROBORATE = 5  # OpenAlex lookups per expert
 ORCID_ID = re.compile(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$")
 
 
@@ -31,9 +32,16 @@ def institution_key(name: str) -> frozenset[str]:
     return frozenset(w for w in n.split() if w not in {"the", "of", "at", "and"})
 
 
+_PARTICLES = {"de", "del", "della", "di", "da", "dos", "du", "van", "von", "der", "den", "la", "le", "bin", "ibn", "al", "el", "st", "st."}
+
+
 def split_name(name: str) -> tuple[str, str]:
+    """Given and family names. Lowercase particles stay with the family name: 'Etienne de Villers-Sidani'."""
     parts = name.split()
-    return " ".join(parts[:-1]), parts[-1]
+    i = len(parts) - 1
+    while i > 1 and parts[i - 1].lower() in _PARTICLES:
+        i -= 1
+    return " ".join(parts[:i]), " ".join(parts[i:])
 
 
 def _records(data: dict) -> list[dict]:
@@ -80,6 +88,16 @@ def resolve_identity(s: Session, name: str, affiliation: str | None) -> dict:
             return {"status": "confirmed", "by": "orcid", "orcid": r["orcid"], "record": r,
                     "reason": f"The only ORCID record for {name} lists {affiliation} (as "
                               f"{next(i for i in r['institutions'] if institution_key(i) == want)})."}
+    if affiliation and 0 < len(recs) <= MAX_CORROBORATE:
+        # ORCID records often list no institution at all. Check each candidate's papers (OpenAlex) and confirm
+        # only if exactly one of them shows this institution.
+        want = institution_key(affiliation)
+        hits = [r for r in recs
+                if any(institution_key(i) == want for i in openalex_institutions(s, r["orcid"]))]
+        if len(hits) == 1:
+            r = hits[0]
+            return {"status": "confirmed", "by": "orcid+openalex", "orcid": r["orcid"], "record": r,
+                    "reason": f"The only ORCID record for {name} whose papers list {affiliation} (OpenAlex)."}
     if recs:
         reason += f" {len(recs)} record(s) match the name alone; pick one if you recognise them."
     return {"status": "not_confirmed", "reason": reason, "candidates": recs}
