@@ -92,7 +92,7 @@ python -m conflict_check.cli --file article.txt --expert "Jane Doe@Harvard Medic
 | Find evidence pages: research papers (conflict statements) and web bios | `pipeline.gather_pages` | Exa research-paper search, Tavily search + extract |
 | Extract ties: a clause naming the person, an organization and a tie keyword | `ties.find_ties` | none, rule-based |
 | Classify: disclosed in the article / related to this story / other | `ties.classify_tie` | none |
-| Confirmation badge: payments from that company to a physician with that name | `openpayments.py` | CMS Open Payments |
+| Confirmation badge: payments from that company to a clinician with that name | `openpayments.py` | CMS Open Payments |
 
 Every call goes through `session.Session`, which caches each response to disk (keyed by request; keys are never stored), supports replay mode, and reports each call to the UI as it happens.
 
@@ -114,7 +114,7 @@ Every call goes through `session.Session`, which caches each response to disk (k
 
 - **No identity, no ties.** If ORCID doesn't return exactly one match for name + affiliation, nothing is searched until a person picks the right record.
 - **No model states a tie.** A tie appears only if a fetched page has a clause naming both the person and the organization, and `verify_quote` confirms the quote is on that page.
-- **Open Payments only confirms.** It never creates a tie, because it matches on name and city, not employer. The badge shows location and NPI so a person can judge, and it's withheld if more than one physician with that name was paid by the company.
+- **Open Payments only confirms.** It never creates a tie, because it matches on name and city, not employer. The badge shows location and NPI so a person can judge, and it's withheld if more than one clinician with that name was paid by the company.
 - **Declining is a valid result.** "No confirmed connections" and "Identity not confirmed" are normal outcomes.
 - **The wording is "connections the article didn't mention",** never "undisclosed conflicts" or "hidden ties".
 - **On stage:** mask names, demo only hand-checked articles, and include one control article that should find nothing.
