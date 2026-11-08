@@ -288,3 +288,25 @@ class TestSameNameGuard(unittest.TestCase):
         self.assertIsNone(ties(about, exclude=[])["Veltrix Pharmaceuticals"]["evidence"][0]["affiliation_seen"])
         self.assertTrue(mentions_affiliation("Oregon Health and Science University", "Dr. X, OHSU, reports"))
         self.assertFalse(mentions_affiliation("Oregon Health and Science University", "Oregon State"))
+
+
+class TestMoreNoise(unittest.TestCase):
+    def test_places_grant_ids_roles_and_filler_words_are_not_payers(self):
+        t = ties("Maren Okafor reports consulting fees from Veltrix Pharmaceuticals, Denmark, Japan and Geneva; "
+                 "grants from R01 AG054434, P30 AG066530 and the Halden Foundation. Thanks to Jennifer. "
+                 "Maren Okafor is Vice Chair of the American Board of Obesity Medicine and a Diplomate.")
+        self.assertEqual(set(t), {"Veltrix Pharmaceuticals", "Halden Foundation"})
+
+
+class TestExaHighlights(unittest.TestCase):
+    def test_disclosure_cut_off_by_the_length_cap_is_recovered_from_highlights(self):
+        from conflict_check.pipeline import with_highlights
+        hit = {"text": "Maren Okafor. Long paper body…", "highlights": [
+            "Competing interests: M.O. reports consulting fees from Veltrix Pharmaceuticals.", "Long paper body…"]}
+        text = with_highlights(hit)
+        self.assertIn("Veltrix", text)
+        self.assertEqual(text.count("Long paper body…"), 1)  # a highlight already in the text isn't repeated
+        t = ties(text)
+        self.assertIn("Veltrix Pharmaceuticals", t)
+        self.assertTrue(t["Veltrix Pharmaceuticals"]["evidence"][0]["verified"])
+        self.assertEqual(with_highlights({"text": "x"}), "x")

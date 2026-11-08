@@ -88,6 +88,10 @@ NOT_ORGS = {
     "chicago", "seattle", "pittsburgh", "rochester", "cleveland", "ca", "ma", "ny", "tx", "fl", "dc",
     "prnewswire", "newswire", "businesswire", "reuters", "wikipedia", "twitter", "linkedin", "youtube",
     "program", "initiative", "translational", "science",
+    "denmark", "israel", "japan", "switzerland", "suisse", "geneva", "germany", "france", "italy", "spain", "china",
+    "india", "australia", "netherlands", "sweden", "norway", "brazil", "korea", "singapore", "ireland", "belgium",
+    "austria", "finland", "poland", "mexico", "taiwan", "montreal", "toronto", "paris", "berlin", "tokyo",
+    "thanks", "brain", "louis", "directors", "chair", "diplomate", "neuroengineering", "jennifer",
     "social", "sciences", "aging", "medicine", "preventive", "epidemiology", "cardiovascular", "associate",
     "assistant", "medical", "population", "magerstadt", "clinical", "research",
 }
@@ -95,6 +99,8 @@ CONNECTORS = {"of", "for", "the", "and", "&", "do", "da", "de"}
 # Capitalised runs that name a journal, a drug/trial code ("GLP-1") or an award, never a payer.
 JOURNAL = re.compile(r"\bjournals?\b|^(?:the\s+)?(?:annals|archives|proceedings|lancet|bmj|jama|nature|science)\b", re.I)
 CODE_NAME = re.compile(r"[A-Z]{2,6}-\d+[A-Za-z]?")
+GRANT_ID = re.compile(r"\b[A-Z]\d{2}\b.*\d{4,}|\b[A-Z]{1,3}\d{5,}\b")  # "R01 AG054434", "P30 AG066530"
+CERTIFIER = re.compile(r"^American Board\b|\bboard of directors\b|\bdiplomate\b", re.I)  # a role or a credential
 AWARD_WORDS = {"grant", "grants", "award", "awards", "fellowship", "scholarship", "funding", "prize"}
 # A new clause about the person, not about who pays: ", and her work has appeared in …"
 CLAUSE_CUT = re.compile(r",\s*(?:and\s+|but\s+|while\s+)?(?=(?:he|she|they|his|her|their)\b)", re.I)
@@ -305,7 +311,8 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
             continue  # wiki link slugs ("Hedge_fund"), units of a university, "All of Us" fragments
         if all(t.lower().strip(".,") in NOT_ORGS | CONNECTORS for t in toks):
             continue
-        if JOURNAL.search(org) or CODE_NAME.fullmatch(org) or toks[-1].lower() in AWARD_WORDS:
+        if (JOURNAL.search(org) or CODE_NAME.fullmatch(org) or GRANT_ID.search(org) or CERTIFIER.search(org)
+                or toks[-1].lower() in AWARD_WORDS):
             continue
         out.append((org, m.start()))
     return out
