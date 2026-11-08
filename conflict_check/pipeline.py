@@ -87,7 +87,11 @@ def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: st
     if ident["status"] != "confirmed":
         out.update(status="identity_not_confirmed", ties=[], disclosed=[])
         return out
-    pages = gather_pages(s, expert.name, expert.affiliation)
+    try:
+        pages = gather_pages(s, expert.name, expert.affiliation)
+    except Exception as err:  # keep the confirmed identity visible even if the search fails
+        out.update(status="error", error=str(err), ties=[], disclosed=[])
+        return out
     surname = expert.name.split()[-1]
     ties = [classify_tie(t, article_text, surname)
             for t in find_ties(pages, expert.name, exclude_orgs=[expert.affiliation])]
