@@ -128,6 +128,28 @@ class TestServer(unittest.TestCase):
         self.assertEqual(cm.exception.code, 404)
         cm.exception.close()
 
+    def raw(self, request: bytes) -> bytes:
+        import socket
+        with socket.create_connection(("127.0.0.1", self.httpd.server_address[1]), timeout=3) as s:
+            s.sendall(request)
+            return s.recv(4096).split(b"\r\n")[0]
+
+    def test_negative_or_bad_content_length_is_rejected_without_blocking(self):
+        for length in (b"-1", b"abc", b"1e3"):
+            status = self.raw(b"POST /api/experts HTTP/1.1\r\nHost: x\r\nContent-Length: " + length + b"\r\n\r\n{}")
+            self.assertIn(b" 400 ", status, length)
+
+    def test_oversize_body_is_413_without_reading_it(self):
+        status = self.raw(b"POST /api/experts HTTP/1.1\r\nHost: x\r\nContent-Length: 3000000\r\n\r\n")
+        self.assertIn(b" 413 ", status)
+
+    def test_demo_leaves_no_files_behind(self):
+        import glob, os, tempfile
+        before = set(glob.glob(os.path.join(tempfile.gettempdir(), "cc-demo-*")))
+        self.post("/api/experts", {"text": demo.ARTICLE, "demo": True})
+        self.assertEqual(set(glob.glob(os.path.join(tempfile.gettempdir(), "cc-demo-*"))), before)
+        self.assertIsNone(demo.demo_session().cache_dir)
+
     def test_stream_reports_errors_as_events(self):
         status, body = self.post("/api/check/stream", {"text": "", "demo": True})
         events = [json.loads(line) for line in body.decode().splitlines()]

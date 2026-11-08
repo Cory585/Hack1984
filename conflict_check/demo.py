@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import random
-import tempfile
 import time
 import urllib.parse
 
@@ -136,6 +135,6 @@ def make_fetcher(delay: tuple[float, float] = (0.25, 0.9)):
 
 
 def demo_session(delay: tuple[float, float] = (0.25, 0.9), on_call=None) -> Session:
-    """A throwaway session: fictional answers, a temporary cache, never replay mode."""
-    return Session(cache_dir=tempfile.mkdtemp(prefix="cc-demo-"), replay=False, fetcher=make_fetcher(delay),
+    """A throwaway session: fictional answers, no disk cache (nothing left behind), never replay mode."""
+    return Session(cache_dir=None, replay=False, fetcher=make_fetcher(delay),
                    tavily_key="demo", exa_key="demo", on_call=on_call)

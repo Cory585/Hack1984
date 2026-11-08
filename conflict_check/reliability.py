@@ -7,7 +7,7 @@ clamped to 0..100 and rounded half-up to a whole number.
 
   factor          weight  values
   identity         .20    ORCID auto-confirmed 1.0 · picked by a person 0.8 · unknown 0.5
-  attribution      .20    best evidence: full name 1.0 · surname .85 · initials .75 ·
+  attribution      .20    best evidence: full name 1.0 · surname + initial .9 · surname .85 · initials .75 ·
                           semicolon continuation .7 · he/she/they .6
   source           .20    best evidence: research-paper disclosure 1.0 · institutional page
                           (.edu, .gov, .ac.xx) .85 · other web page .6
@@ -55,7 +55,7 @@ OP_BONUS = 8
 BANDS = ((80, "Strong"), (60, "Moderate"), (0, "Weak"))
 
 IDENTITY = {"orcid": 1.0, "user": .8}
-ATTRIBUTION = {"full name": 1.0, "surname": .85, "initials": .75, "continuation": .7, "pronoun": .6}
+ATTRIBUTION = {"full name": 1.0, "surname + initial": .9, "surname": .85, "initials": .75, "continuation": .7, "pronoun": .6}
 SOURCE = {"paper": 1.0, "institution": .85, "web": .6}
 WORDING = {"employment": 1.0, "equity": 1.0, "board": 1.0, "founder": 1.0, "patents / royalties": 1.0,
            "consulting": .9, "advisory board": .9, "research funding": .9, "speaking": .9,

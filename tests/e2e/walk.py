@@ -1,19 +1,42 @@
 """End-to-end walk through the real page, clicking like a user, in headless Edge/Chrome.
 
-    python -m conflict_check.server            # in one terminal
-    python tests/e2e/walk.py [base-url] [screenshot-dir]
+    python tests/e2e/walk.py                       # starts its own server (no keys, temp cache)
+    python tests/e2e/walk.py http://localhost:8000/ [screenshot-dir]   # or test a running server
 
-Uses the built-in demo, so no API keys are needed (one step checks the
-no-keys error path, so leave TAVILY/EXA keys unset). Not part of
-`python -m unittest`, since it needs a browser and a running server.
+By default it starts a private server on a free port with TAVILY/EXA keys removed (and .env
+ignored), so the no-keys error path is always testable and nothing touches the network: that
+step fails before any request is made. Against your own server, the no-keys step is skipped if
+that server has keys. Not part of `python -m unittest`, since it needs a browser.
 """
-import os, sys, tempfile, time
+import json, os, shutil, socket, subprocess, sys, tempfile, time, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cdp import Browser
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000/"
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SP = sys.argv[2] if len(sys.argv) > 2 else tempfile.mkdtemp(prefix="cc-e2e-shots-")
 results = []
+server = cache = None
+if len(sys.argv) > 1:
+    BASE = sys.argv[1].rstrip("/") + "/"
+else:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]
+    cache = tempfile.mkdtemp(prefix="cc-e2e-cache-")
+    env = {k: v for k, v in os.environ.items() if k not in ("TAVILY_API_KEY", "EXA_API_KEY")}
+    env.update(CC_NO_DOTENV="1", CACHE_DIR=cache)
+    server = subprocess.Popen([sys.executable, "-m", "conflict_check.server", "--port", str(port)], cwd=ROOT, env=env,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    BASE = f"http://127.0.0.1:{port}/"
+config = None
+for _ in range(40):
+    try:
+        config = json.load(urllib.request.urlopen(BASE + "api/config", timeout=2)); break
+    except Exception:
+        time.sleep(0.25)
+if config is None:
+    if server: server.kill()
+    raise SystemExit(f"server not reachable at {BASE}")
+NO_KEYS = not any(config.get("keys", {}).values())
 
 
 def check(name, ok, detail=""):
@@ -26,21 +49,25 @@ try:
     b.goto(BASE)
     b.js("localStorage.clear()")
     b.goto(BASE)
-    check("page loads, no JS errors", b.js("!!document.getElementById('demo-btn')") and not b.console, "; ".join(b.console))
+    check("page loads, no JS errors", b.js("!!document.getElementById('demo-btn')") and not b.errors(), "; ".join(b.errors()))
 
     # --- dead end: empty submit ---
     b.js("document.getElementById('find').click()")
     check("empty submit explains what to do", b.wait("document.getElementById('msg').textContent.includes('link')", 3))
 
-    # --- dead end: live search with no API keys -> error box with fixes ---
-    b.js("document.getElementById('url').value = 'https://news.example.com/x'; document.getElementById('find').click()")
-    check("button shows loading shine", b.wait("document.getElementById('find').classList.contains('loading') || document.querySelector('#rows .error-box')", 3))
-    ok = b.wait("document.querySelector('#rows .error-box')", 15)
-    btns = b.js("[...document.querySelectorAll('#rows .error-box button')].map(x => x.textContent.trim())") if ok else []
-    check("failed search offers Try again + demo", ok and "Try again" in btns and "Use the demo instead" in btns, str(btns))
+    # --- dead end: live search with no API keys -> error box with fixes (fails before any network call) ---
+    if NO_KEYS:
+        b.js("document.getElementById('url').value = 'https://news.example.com/x'; document.getElementById('find').click()")
+        check("button shows loading shine", b.wait("document.getElementById('find').classList.contains('loading') || document.querySelector('#rows .error-box')", 3))
+        ok = b.wait("document.querySelector('#rows .error-box')", 15)
+        btns = b.js("[...document.querySelectorAll('#rows .error-box button')].map(x => x.textContent.trim())") if ok else []
+        check("failed search offers Try again + demo", ok and "Try again" in btns and "Use the demo instead" in btns, str(btns))
+        b.js("[...document.querySelectorAll('#rows .error-box button')].find(x => x.textContent.includes('demo')).click()")
+    else:
+        print("SKIP no-keys error path (this server has API keys)")
+        b.js("document.getElementById('demo-btn').click()")
 
-    # --- demo from the error box ---
-    b.js("[...document.querySelectorAll('#rows .error-box button')].find(x => x.textContent.includes('demo')).click()")
+    # --- demo ---
     check("review shows skeleton rows while loading", b.wait("document.querySelector('#rows .person.skeleton') || document.querySelectorAll('#rows .person:not(.skeleton)').length", 5))
     check("demo finds 3 people", b.wait("document.querySelectorAll('#rows .person:not(.skeleton)').length === 3", 15))
     check("demo badge visible", b.js("!document.getElementById('demo-badge').hidden"))
@@ -83,7 +110,9 @@ try:
     stale = b.wait("document.querySelector('.result.stale') && !document.getElementById('banner').hidden", 3)
     check("re-run shows last result instantly (stale)", stale, b.js("document.getElementById('banner').textContent"))
     check("stale cards refresh to fresh", b.wait("!document.querySelector('.result.stale') && !document.getElementById('result-actions').hidden", 40))
-    check("banner says up to date", b.js("document.getElementById('banner').textContent.includes('Up to date') || document.getElementById('banner').hidden"))
+    # The banner must actually say so (it auto-hides ~3.5 s later, so read it straight after the refresh).
+    check("banner says up to date", b.js("!document.getElementById('banner').hidden && document.getElementById('banner').textContent.includes('Up to date')"),
+          b.js("[document.getElementById('banner').hidden, document.getElementById('banner').textContent]"))
 
     # --- result actions ---
     b.js("document.querySelector('[data-act=download]').click()")
@@ -140,10 +169,17 @@ try:
     b.js("document.querySelector('[data-act=exit-demo]').click()")
     check("exit demo clears demo mode", b.wait("document.getElementById('demo-badge').hidden && !document.getElementById('replay').disabled", 3))
 
-    check("no JS errors during the walk", not b.console, "; ".join(b.console))
+    check("no JS errors during the walk", not b.errors(), "; ".join(b.errors()))
+    warnings = [c for c in b.console if c.startswith("warning")]
+    if warnings:
+        print("NOTE console warnings (not failures): " + "; ".join(warnings))
 finally:
     b.close()
+    if server:
+        server.kill(); server.wait(timeout=10)
+    if cache:
+        shutil.rmtree(cache, ignore_errors=True)
 
 failed = [r for r in results if not r[1]]
-print(f"\n{len(results) - len(failed)}/{len(results)} passed")
+print(f"\n{len(results) - len(failed)}/{len(results)} passed · screenshots in {SP}")
 sys.exit(1 if failed else 0)
