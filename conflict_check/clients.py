@@ -77,14 +77,18 @@ OPENALEX = "https://api.openalex.org"
 
 def openalex_institutions(s: Session, orcid: str) -> list[str]:
     """Institutions on this researcher's papers (OpenAlex). ORCID records often list none, so this is how a
-    sole name match gets corroborated. Empty when OpenAlex doesn't know the iD."""
+    sole name match gets corroborated. A filter query (not /authors/<id>) so an unknown iD is an empty 200,
+    which caches and replays, instead of a 404."""
+    url = f"{OPENALEX}/authors?" + urllib.parse.urlencode({"filter": f"orcid:https://orcid.org/{orcid}"}, safe=":/")
     try:
-        data = s.request("openalex", f"openalex author: {orcid}", "GET",
-                         f"{OPENALEX}/authors/{urllib.parse.quote('https://orcid.org/' + orcid, safe='')}", {})
-    except RuntimeError:  # 404 for an unknown iD, or a network error: no corroboration, never a failure
+        data = s.request("openalex", f"openalex author: {orcid}", "GET", url, {})
+    except RuntimeError:  # a network error: no corroboration, never a failure
         return []
-    return [a["institution"]["display_name"] for a in (data.get("affiliations") or [])
-            if (a.get("institution") or {}).get("display_name")]
+    out = []
+    for author in data.get("results") or []:
+        out += [a["institution"]["display_name"] for a in (author.get("affiliations") or [])
+                if (a.get("institution") or {}).get("display_name")]
+    return out
 
 
 OPEN_PAYMENTS = "https://openpaymentsdata.cms.gov/api/1/datastore/query"

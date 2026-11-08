@@ -446,8 +446,8 @@ class TestIdentityRecall(unittest.TestCase):
             if "api.openalex.org" in url:
                 for orcid, insts in institutions_by_orcid.items():
                     if orcid in url:
-                        return {"affiliations": [{"institution": {"display_name": i}} for i in insts]}
-                raise RuntimeError("HTTP 404")
+                        return {"results": [{"affiliations": [{"institution": {"display_name": i}} for i in insts]}]}
+                return {"results": []}
             recs = [{"orcid-id": o, "given-names": "Ana", "family-names": "Lee", "institution-name": []}
                     for o in institutions_by_orcid]
             return {"num-found": len(recs), "expanded-result": recs if "AND affiliation" not in url and "affiliation-org" not in url else None}
