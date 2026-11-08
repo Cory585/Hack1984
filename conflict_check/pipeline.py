@@ -142,12 +142,15 @@ def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: st
     # Start the evidence search while ORCID resolves: it only matters if identity is confirmed, but
     # waiting for ORCID first would add a full round trip to every expert.
     with ThreadPoolExecutor(max_workers=2) as pool:
-        pages_f = pool.submit(gather_pages, s, expert.name, expert.affiliation)
+        # Without an affiliation or a picked ORCID iD, identity can never auto-confirm, so don't search at all.
+        pages_f = (pool.submit(gather_pages, s, expert.name, expert.affiliation)
+                   if (expert.affiliation or picked_orcid) else None)
         ident = (identity_from_pick(s, expert.name, picked_orcid) if picked_orcid
                  else resolve_identity(s, expert.name, expert.affiliation))
         out["identity"] = ident
         if ident["status"] != "confirmed":
-            pages_f.cancel()  # not started yet in the best case; otherwise its result is ignored (and cached)
+            if pages_f:
+                pages_f.cancel()  # not started yet in the best case; otherwise its result is ignored (and cached)
             out.update(status="identity_not_confirmed", ties=[], disclosed=[])
             return out
         try:
