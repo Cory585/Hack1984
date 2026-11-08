@@ -86,29 +86,60 @@ def site(url: str | None) -> str:
     return ".".join(parts[-2:]) if len(parts) >= 2 else host
 
 
+SCHOLARLY = re.compile(
+    r"(?:^|\.)(?:doi\.org|ncbi\.nlm\.nih\.gov|europepmc\.org|pubmed\.gov|sciencedirect\.com|springer\.com|wiley\.com|"
+    r"nature\.com|thelancet\.com|jamanetwork\.com|nejm\.org|bmj\.com|plos\.org|frontiersin\.org|mdpi\.com|arxiv\.org|"
+    r"biorxiv\.org|medrxiv\.org|oup\.com|tandfonline\.com|sagepub\.com|cell\.com|karger\.com|ahajournals\.org|"
+    r"acpjournals\.org|cmaj\.ca|biomedcentral\.com|semanticscholar\.org)$")
+
+
 def source_kind(ev: dict) -> str:
-    if ev.get("api") == "exa":  # Exa is queried with category "research paper"
-        return "paper"
+    """'paper' needs evidence of one: a scholarly host, or a page with a DOI and a conflict-of-interest
+    heading (ev['paper_signals'], set by ties.find_ties). Which API found the page doesn't decide it:
+    Exa's 'research paper' category can still return blogs and news."""
     host = (urllib.parse.urlparse(ev.get("url") or "").hostname or "").lower()
+    if SCHOLARLY.search(host) or ev.get("paper_signals"):
+        return "paper"
     return "institution" if INSTITUTIONAL.search(host) else "web"
 
 
-def newest_year(evidence: list[dict], now: int) -> int | None:
-    years = [int(y) for ev in evidence for field in ("title", "url", "quote")
+def source_year(evidence: list[dict], now: int) -> tuple[int | None, str | None]:
+    """(year, how): the publication date the search API reported (Exa publishedDate, Tavily
+    published_date) when there is one; otherwise a year in the page title or link. Years inside the
+    quote are never used: 'since 2012' or 'founded in 2023' say nothing about how old the source is."""
+    published = [int(m.group(1)) for ev in evidence
+                 if (m := re.match(r"(199\d|20\d\d)", str(ev.get("published") or ""))) and int(m.group(1)) <= now]
+    if published:
+        return max(published), "published"
+    years = [int(y) for ev in evidence for field in ("title", "url")
              for y in YEAR.findall(ev.get(field) or "") if 1990 <= int(y) <= now]
-    return max(years) if years else None
+    return (max(years), "dated") if years else (None, None)
+
+
+def newest_year(evidence: list[dict], now: int) -> int | None:
+    return source_year(evidence, now)[0]
 
 
 def _factor(key: str, value: float, note: str) -> dict:
-    return {"key": key, "value": round(value, 3), "weight": WEIGHTS.get(key), "note": note}
+    # Values stay unrounded here; scores are computed from these and only the display copy is rounded.
+    return {"key": key, "value": value, "weight": WEIGHTS.get(key), "note": note}
+
+
+def _weighted_score(factors: list[dict], bonus: int = 0) -> int:
+    total = sum(f["weight"] for f in factors)
+    score = max(0, min(100, round_half_up(100 * sum(f["value"] * f["weight"] for f in factors) / total + bonus)))
+    for f in factors:
+        f["value"] = round(f["value"], 3)  # display only, after the score is computed
+    return score
 
 
 def score_tie(tie: dict, identity: dict | None, now: int | None = None) -> dict:
     """Adds tie['reliability'] = {score, label, factors, bonus} and returns it."""
     now = now or datetime.date.today().year
     evidence = tie.get("evidence") or []
-    if not evidence:
-        rel = {"score": 0, "label": "Weak", "factors": [], "bonus": 0, "note": "No evidence."}
+    if not evidence:  # same shape as a normal rating, so callers never need a special case
+        rel = {"score": 0, "label": "Weak", "factors": [], "bonus": 0, "sites": 0, "best_source": None,
+               "note": "No evidence."}
         tie["reliability"] = rel
         return rel
 
@@ -129,21 +160,21 @@ def score_tie(tie: dict, identity: dict | None, now: int | None = None) -> dict:
     cats = tie.get("categories") or [tie.get("category") or "other"]
     best_cat = max(cats, key=lambda c: WORDING.get(c, .6))
     f_word = _factor("wording", WORDING.get(best_cat, .6), best_cat)
-    year = newest_year(evidence, now)
+    year, how = source_year(evidence, now)
     if year is None:
         f_rec = _factor("recency", .7, "no date found")
     else:
         age = now - year
-        f_rec = _factor("recency", 1.0 if age <= 3 else .75 if age <= 6 else .5, f"newest source {year}")
+        f_rec = _factor("recency", 1.0 if age <= 3 else .75 if age <= 6 else .5,
+                        f"published {year}" if how == "published" else f"dated {year} (title or link)")
     org = (tie.get("org") or "").strip()
     acronym = bool(re.fullmatch(r"[A-Z0-9&]{2,5}", org))
     f_org = _factor("organization", .8 if acronym else 1.0, "acronym only" if acronym else "full name")
 
     factors = [f_ident, f_attr, f_src, f_corr, f_word, f_rec, f_org]
-    base = 100 * sum(f["value"] * f["weight"] for f in factors) / sum(WEIGHTS.values())
     op = tie.get("open_payments") or {}
     bonus = OP_BONUS if op.get("status") == "name_match" else 0
-    score = max(0, min(100, round_half_up(base + bonus)))
+    score = _weighted_score(factors, bonus)
     rel = {"score": score, "label": label(score), "factors": factors, "bonus": bonus,
            "sites": n_sites, "best_source": best_kind}
     tie["reliability"] = rel
@@ -165,21 +196,27 @@ def order_ties(ties: list[dict]) -> list[dict]:
 
 
 def coverage(result: dict, pages: list[dict]) -> dict | None:
-    """How thorough the check was. None when identity wasn't confirmed or the search failed."""
+    """How thorough the check was. None when identity wasn't confirmed or the search failed (the
+    pipeline only rates successful searches, but this is public, so it guards anyway).
+    Only pages that mention the person count (page['about'], set by the pipeline): ten pages about
+    other people with a similar name are no evidence of a thorough search."""
     ident = result.get("identity") or {}
     if ident.get("status") != "confirmed" or result.get("status") == "error":
         return None
-    n = len(pages)
-    channels = {p.get("api") for p in pages if p.get("api")}
+    about = [p for p in pages if p.get("about", True)]
+    n = len(about)
+    channels = {p.get("api") for p in about if p.get("api")}
     factors = [
         {"key": "identity", "value": IDENTITY.get(ident.get("by"), .5), "weight": .4,
          "note": {"orcid": "confirmed by ORCID", "user": "picked by a person"}.get(ident.get("by"), "identity unknown")},
         {"key": "pages", "value": 0 if n == 0 else .5 if n <= 2 else .8 if n <= 5 else 1.0, "weight": .35,
-         "note": f"{n} page{'s' if n != 1 else ''} checked"},
+         "note": f"{n} of {len(pages)} pages found mention them"},
         {"key": "channels", "value": 1.0 if {"exa", "tavily"} <= channels else .6 if channels else 0, "weight": .25,
-         "note": " and ".join(sorted(channels)) + " returned pages" if channels else "no search returned pages"},
+         "note": ("both Exa and Tavily found pages about them" if {"exa", "tavily"} <= channels
+                  else f"only {next(iter(channels)).capitalize()} found pages about them" if channels
+                  else "no search found pages about them")},
     ]
-    score = max(0, min(100, round_half_up(100 * sum(f["value"] * f["weight"] for f in factors))))
+    score = _weighted_score(factors)
     return {"score": score, "label": label(score), "factors": factors}
 
 

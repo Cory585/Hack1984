@@ -145,6 +145,21 @@ class TestReviewFindings(unittest.TestCase):
         self.assertEqual(set(ties(page, exclude=[])), {"Cora Labs", "Bolt Labs"})
         self.assertEqual(set(ties(page, name="Jon Lee", exclude=[])), {"Acme Labs"})
 
+    def test_alias_recorded_when_a_new_category_arrives(self):  # review 10.1
+        page = ("Maren Okafor. Okafor reports consulting fees from Astra Zeneca. "
+                "Okafor serves on an advisory board of AstraZeneca Inc.")
+        (t,) = find_ties([{"url": "u", "title": "t", "api": "x", "text": page}], NAME)
+        self.assertEqual(t["org"], "AstraZeneca Inc")
+        self.assertEqual(t["aliases"], ["Astra Zeneca"])
+        self.assertEqual(t["categories"], ["consulting", "advisory board"])
+
+    def test_attribution_labels(self):  # review 10.8
+        from conflict_check.ties import person_statements
+        page = ("Maren Okafor, Jon Lee.\nOkafor M reports fees from Acme Labs.\nM. Okafor received grants from Bolt Labs.\n"
+                "Okafor has shares in Dyna Labs.\nMO consults for Echo Labs.\nShe is a director of Fera Labs.")
+        labels = [how for _, _, how in person_statements(page, NAME)]
+        self.assertEqual(labels, ["full name", "surname + initial", "surname + initial", "surname", "initials", "pronoun"])
+
     def test_disclosed_check_uses_surname_not_suffix(self):
         from conflict_check.ties import surname
         article = "John Smith Jr said it worked.\n\nSmith, who consults for Veltrix, praised the drug."

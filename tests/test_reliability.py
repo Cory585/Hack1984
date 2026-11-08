@@ -9,8 +9,13 @@ ORCID = {"status": "confirmed", "by": "orcid"}
 NOW = 2026
 
 
-def ev(url="https://journals.example.org/p", api="exa", matched_by="full name", title="Paper (2025)", quote="q"):
-    return {"url": url, "api": api, "matched_by": matched_by, "title": title, "quote": quote, "verified": True}
+def ev(url="https://journals.example.org/p", api="exa", matched_by="full name", title="Paper (2025)", quote="q",
+       paper=None, published=None):
+    """Evidence; by default an Exa research paper (a DOI + conflict-of-interest heading on the page)."""
+    if paper is None:
+        paper = api == "exa"
+    return {"url": url, "api": api, "matched_by": matched_by, "title": title, "quote": quote, "verified": True,
+            "paper_signals": paper, "published": published}
 
 
 def tie(org="Veltrix Pharmaceuticals", evidence=None, categories=("consulting",), op=None, related=True):
@@ -46,9 +51,18 @@ class TestBoundariesAndRounding(unittest.TestCase):
         self.assertGreater(r["score"], 0)
         self.assertEqual(r["label"], "Weak")
 
-    def test_no_evidence_is_zero(self):
+    def test_no_evidence_is_zero_with_the_normal_shape(self):  # review 10.5
         r = score_tie(tie(evidence=[]), ORCID, NOW)
         self.assertEqual((r["score"], r["label"]), (0, "Weak"))
+        full = score_tie(tie(), ORCID, NOW)
+        self.assertEqual(set(r) - {"note"}, set(full))
+
+    def test_score_uses_unrounded_factor_values(self):  # review 10.5
+        from conflict_check.reliability import _weighted_score
+        # 0.12496 -> 12.496 -> 12. Rounding the factor to 3 places first (0.125) would give 12.5 -> 13.
+        factors = [{"key": "x", "value": .12496, "weight": 1, "note": ""}]
+        self.assertEqual(_weighted_score(factors), 12)
+        self.assertEqual(factors[0]["value"], .125)  # the display copy is rounded only afterwards
 
 
 class TestFactors(unittest.TestCase):
@@ -69,6 +83,22 @@ class TestFactors(unittest.TestCase):
         self.assertEqual(source_kind(ev(url="https://med.example.edu/p", api="tavily")), "institution")
         self.assertEqual(source_kind(ev(url="https://www.example.ac.uk/p", api="tavily")), "institution")
         self.assertEqual(source_kind(ev(url="https://example.org/p", api="tavily")), "web")
+
+    def test_exa_alone_doesnt_make_a_paper(self):  # review 10.2
+        self.assertEqual(source_kind(ev(url="https://someblog.example.com/post", api="exa", paper=False)), "web")
+        self.assertEqual(source_kind(ev(url="https://med.example.edu/news", api="exa", paper=False)), "institution")
+        self.assertEqual(source_kind(ev(url="https://jamanetwork.com/journals/x", api="tavily", paper=False)), "paper")
+        self.assertEqual(source_kind(ev(url="https://pmc.ncbi.nlm.nih.gov/articles/PMC1", api="tavily", paper=False)), "paper")
+
+    def test_publication_date_beats_years_in_text(self):  # review 10.3
+        from conflict_check.reliability import source_year
+        self.assertEqual(source_year([ev(title="Annual report 2025", published="2019-03-01")], NOW), (2019, "published"))
+        self.assertEqual(source_year([ev(title="Untitled", quote="consultant since 2012; founded in 2025")], NOW), (None, None))
+        self.assertEqual(source_year([ev(title="Review (2024)")], NOW), (2024, "dated"))
+        self.assertEqual(source_year([ev(title="x", published="2031-01-01")], NOW), (None, None))  # future date ignored
+        note = next(f["note"] for f in score_tie(tie(evidence=[ev(published="2025-06-12T00:00:00Z")]), ORCID, NOW)["factors"]
+                    if f["key"] == "recency")
+        self.assertEqual(note, "published 2025")
 
     def test_same_website_counts_once(self):
         self.assertEqual(site("https://news.example.co.uk/a"), "example.co.uk")
@@ -165,6 +195,12 @@ class TestCoverageAndDeterminism(unittest.TestCase):
         self.assertEqual((full["score"], full["label"]), (100, "Strong"))
         one = coverage({"identity": ORCID, "status": "no_confirmed_connections"}, [{"api": "exa"}])
         self.assertEqual(one["label"], "Moderate")
+
+    def test_coverage_counts_only_pages_about_the_person(self):  # review 10.4
+        unrelated = [{"api": "exa", "about": False}] * 3 + [{"api": "tavily", "about": False}] * 3
+        c = coverage({"identity": ORCID, "status": "no_confirmed_connections"}, unrelated)
+        self.assertEqual(c["label"], "Weak")
+        self.assertIn("0 of 6 pages", next(f["note"] for f in c["factors"] if f["key"] == "pages"))
 
     def test_rating_twice_gives_the_same_result(self):
         result = {"identity": ORCID, "status": "connections_found",

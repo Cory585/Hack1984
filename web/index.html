@@ -1084,30 +1084,50 @@ function badge(op) {
 }
 const FACTOR_NAMES = { identity: "Identity", attribution: "Attribution", source: "Source", corroboration: "Corroboration",
   wording: "Wording", recency: "Recency", organization: "Organization", pages: "Pages checked", channels: "Search channels" };
-function relPill(r, prefix = "") {
+// kind: "tie" (how much to trust a connection) or "coverage" (how thorough the search was).
+const REL_TEXT = {
+  tie: { title: "Reliability", explain: "How much to trust this connection, from 0 to 100. Strong is 80+, Moderate 60–79. Equal scores are ordered by more websites, then better source, then the more serious kind of tie." },
+  coverage: { title: "Coverage", explain: "How thorough the search was, from 0 to 100: identity, pages that mention them, and which searches found them. Strong is 80+, Moderate 60–79." },
+};
+function relPill(r, kind = "tie") {
   if (!r || r.score == null) return "";
-  return `<span class="rel ${esc(r.label.toLowerCase())}" title="${esc(prefix)}Reliability ${r.score}/100">${esc(prefix)}${esc(r.label)} · ${r.score}</span>`;
+  const t = REL_TEXT[kind];
+  return `<span class="rel ${esc(r.label.toLowerCase())}" title="${t.title} ${r.score}/100">${kind === "coverage" ? "Coverage " : ""}${esc(r.label)} · ${r.score}</span>`;
 }
-function relWhy(r, what) {
+function relWhy(r, kind = "tie") {
   if (!r || !r.factors || !r.factors.length) return "";
   const rows = r.factors.map(f => `<li><span class="fname">${esc(FACTOR_NAMES[f.key] || f.key)}</span>
     <span class="fbar" aria-hidden="true"><i style="width:${Math.round(f.value * 100)}%"></i></span>
     <span class="fnote">${mask(f.note)}</span></li>`).join("");
   return `<details class="why"><summary>Why ${r.score}?</summary><ul class="factors">${rows}</ul>
     ${r.bonus ? `<p class="hint">+${r.bonus} for a matching CMS Open Payments record.</p>` : ""}
-    <p class="hint">${esc(what)} Strong is 80+, Moderate 60–79. Equal scores are ordered by more websites, then better source, then the more serious kind of tie.</p></details>`;
+    <p class="hint">${esc(REL_TEXT[kind].explain)}</p></details>`;
+}
+const CATEGORY_RANK = ["employment", "equity", "board", "founder", "patents / royalties", "consulting", "advisory board",
+  "research funding", "speaking", "personal fees", "other"];
+function tieCategories(t) {  // every kind of tie found, most serious first (the score uses the most specific)
+  const cats = (t.categories && t.categories.length ? t.categories : [t.category || t.relation]).slice();
+  return cats.sort((a, b) => (CATEGORY_RANK.indexOf(a) + 99) % 99 - (CATEGORY_RANK.indexOf(b) + 99) % 99);
 }
 function tieHtml(t, cls) {
   const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}${e.matched_by ? " · named by " + esc(e.matched_by) : ""}</span></blockquote>`).join("");
   const where = cls === "disc" ? "disclosed in article" : t.related_to_story ? "named in this story" : "not named in this story";
-  return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b><span class="tag">${esc(t.category || t.relation)}</span><span class="tag">${where}</span>${relPill(t.reliability)}</div>${ev}${badge(t.open_payments)}
-    ${relWhy(t.reliability, "How much to trust this connection, from 0 to 100.")}</div>`;
+  const tags = tieCategories(t).map(c => `<span class="tag">${esc(c)}</span>`).join("");
+  return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b>${tags}<span class="tag">${where}</span>${relPill(t.reliability)}</div>${ev}${badge(t.open_payments)}
+    ${relWhy(t.reliability, "tie")}</div>`;
 }
 function coverageHtml(e) {
-  const c = e.coverage; if (!c) return "";
-  const notes = c.factors.filter(f => f.key !== "identity").map(f => f.note).join(" · ");
-  return `<div class="coverage">${relPill(c, "Coverage: ")}<span class="hint">${esc(notes)}${e.status === "no_confirmed_connections" && c.label !== "Strong" ? ". A clean result with thin coverage is weak evidence of no ties." : ""}</span></div>
-    ${relWhy(c, "How thorough the search was.")}`;
+  const c = e.coverage;
+  if (!c) {  // e.g. a saved result from before coverage existed
+    return ["connections_found", "no_confirmed_connections"].includes(e.status)
+      ? `<p class="hint">Coverage wasn't rated for this saved result. Check again to rate it.</p>` : "";
+  }
+  const note = key => (c.factors.find(f => f.key === key) || {}).note || "";
+  const sentence = `${note("pages")[0].toUpperCase()}${note("pages").slice(1)}; ${note("channels")}.`;
+  const warn = e.status === "no_confirmed_connections" && c.label !== "Strong"
+    ? `<p class="hint">With coverage this thin, “no confirmed connections” is weak evidence that there are none.</p>` : "";
+  return `<div class="coverage">${relPill(c, "coverage")}<span class="hint">${mask(sentence)}</span></div>${warn}
+    ${relWhy(c, "coverage")}`;
 }
 function identityHtml(e) {
   const id = e.identity; if (!id) return "";

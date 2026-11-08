@@ -43,6 +43,10 @@ NEGATION = re.compile(
 )
 EXCEPTION = re.compile(r"\b(?:except|other\s+than|apart\s+from|besides|aside\s+from)\b", re.I)
 PRONOUN_START = re.compile(r"^(?:He|She|They|His|Her|Their)\b")
+# Signs a page is a research paper: a DOI plus a conflict-of-interest section heading.
+DOI = re.compile(r"\b10\.\d{4,9}/[^\s\"<>]+")
+COI_HEADING = re.compile(r"\b(?:competing\s+interests?|conflicts?\s+of\s+interests?|declarations?\s+of\s+interests?|"
+                         r"(?:financial\s+)?disclosures?)\s*[:.\n]", re.I)
 
 ORG_RUN = re.compile(r"(?:[A-Z][\w&'’\-]*)(?:\s+(?:of|for|&|do|da|de|[A-Z][\w&'’\-]*)){0,6}")  # "Eli Lilly do Brasil"
 ABBREV = re.compile(r"(?:\b(?:Dr|Prof|Mr|Ms|Mrs|St|Inc|Co|Corp|Ltd|al|vs|No)|\b[A-Z])\.$")
@@ -348,6 +352,7 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
         text = page.get("text") or ""
         if not strong.search(text):
             continue  # page isn't demonstrably about this person
+        paper_like = bool(DOI.search(text) and COI_HEADING.search(text))  # reliability: is this a paper?
         for seg, quote, how in person_statements(text, name):
             kw = TIE.search(seg)
             if not kw or (NEGATION.search(seg) and not EXCEPTION.search(seg)):
@@ -366,7 +371,8 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
                     ties.append(tie)
                 if category(rel) not in tie["categories"]:
                     tie["categories"].append(category(rel))
-                elif org != tie["org"] and org not in tie["aliases"]:
+                # Independent of the category check above (an elif here skipped aliases for new categories).
+                if org != tie["org"] and org not in tie["aliases"]:
                     tie["aliases"].append(org)
                     if len(org) > len(tie["org"]):  # show the fullest spelling
                         tie["aliases"].append(tie["org"])
@@ -375,7 +381,8 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
                 ev = next((e for e in tie["evidence"] if e["url"] == page.get("url")), None)
                 if ev is None:
                     tie["evidence"].append({"url": page.get("url"), "title": page.get("title"), "api": page.get("api"),
-                                            "quote": quote, "verified": True, "matched_by": how})
+                                            "quote": quote, "verified": True, "matched_by": how,
+                                            "published": page.get("published"), "paper_signals": paper_like})
                 elif ATTRIBUTION.index(how) < ATTRIBUTION.index(ev["matched_by"]):
                     ev.update(quote=quote, matched_by=how)  # same page, stronger attribution: keep that one
     return ties
