@@ -164,25 +164,19 @@ def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: st
     """With `on_partial`, the ties are reported as soon as the searches finish (flagged `badges_pending`),
     then the slow Open Payments badges are added and the finished result is returned."""
     out = expert.to_dict()
-    # Start the evidence search while ORCID resolves: it only matters if identity is confirmed, but
-    # waiting for ORCID first would add a full round trip to every expert.
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        # Without an affiliation or a picked ORCID iD, identity can never auto-confirm, so don't search at all.
-        pages_f = (pool.submit(gather_pages, s, expert.name, expert.affiliation)
-                   if (expert.affiliation or picked_orcid) else None)
-        ident = (identity_from_pick(s, expert.name, picked_orcid) if picked_orcid
-                 else resolve_identity(s, expert.name, expert.affiliation))
-        out["identity"] = ident
-        if ident["status"] != "confirmed":
-            if pages_f:
-                pages_f.cancel()  # not started yet in the best case; otherwise its result is ignored (and cached)
-            out.update(status="identity_not_confirmed", ties=[], disclosed=[])
-            return out
-        try:
-            pages = pages_f.result()
-        except Exception as err:  # keep the confirmed identity visible even if the search fails
-            out.update(status="error", error=str(err), ties=[], disclosed=[])
-            return out
+    # Identity first: the searches cost API credits (two Exa, one advanced Tavily), and ORCID answers in about
+    # 0.3 s, so searching in parallel saved almost no time and wasted credits on every unconfirmed expert.
+    ident = (identity_from_pick(s, expert.name, picked_orcid) if picked_orcid
+             else resolve_identity(s, expert.name, expert.affiliation))
+    out["identity"] = ident
+    if ident["status"] != "confirmed":
+        out.update(status="identity_not_confirmed", ties=[], disclosed=[])
+        return out
+    try:
+        pages = gather_pages(s, expert.name, expert.affiliation)
+    except Exception as err:  # keep the confirmed identity visible even if the search fails
+        out.update(status="error", error=str(err), ties=[], disclosed=[])
+        return out
     last = surname(expert.name)  # skips suffixes: "John Smith Jr" -> Smith, matching how the article refers to him
     ties = [classify_tie(t, article_text, last)
             for t in find_ties(pages, expert.name, exclude_orgs=[expert.affiliation])]

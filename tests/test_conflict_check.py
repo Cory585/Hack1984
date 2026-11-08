@@ -351,3 +351,19 @@ class TestSearchRequests(unittest.TestCase):
         self.assertTrue(all("highlights" in b["contents"] for b in exa))
         self.assertEqual((len(tav), tav[0]["search_depth"]), (1, "advanced"))
         self.assertEqual(sorted(p["url"] for p in pages), ["https://example.org/p", "https://example.org/w"])
+
+
+class TestNoSearchWithoutIdentity(unittest.TestCase):
+    def test_unconfirmed_expert_costs_no_search_credits(self):
+        calls = []
+
+        def fetch(method, url, headers, body):
+            calls.append(url)
+            if "orcid.org" in url:
+                return {"expanded-result": None}
+            raise AssertionError(f"searched an unconfirmed expert: {url}")
+
+        s = Session(cache_dir=None, tavily_key="t", exa_key="e", fetcher=fetch)
+        result = check_article(s, text=ARTICLE, experts=[{"name": "Maren Okafor", "affiliation": "Lakeside University"}])
+        self.assertEqual(result["experts"][0]["status"], "identity_not_confirmed")
+        self.assertTrue(calls and all("orcid.org" in u for u in calls))
