@@ -562,7 +562,9 @@ const MAX = 5;
 const STATUS = { connections_found: "Connections not mentioned", no_confirmed_connections: "No confirmed connections",
   identity_not_confirmed: "Identity not confirmed", error: "Error", checking: "Checking" };
 const STEPS = [["identity", "Identity", ["orcid"]], ["papers", "Papers", ["exa"]], ["web", "Web", ["tavily"]], ["payments", "Payments", ["openpayments"]]];
-const state = { article: null, experts: [], results: {}, calls: [], mode: "url", demo: false, order: [], idx: -1, running: false, swrKey: null };
+const state = { article: null, experts: [], results: {}, calls: [], mode: "url", demo: false, demoText: null,
+  gen: 0, active: 0, swrKey: null };
+const runOf = new Map();  // expert name -> the run currently checking them
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 /* ---------- small storage helper (never throws) ---------- */
@@ -609,17 +611,33 @@ for (const el of [$("url"), $("text")]) el.addEventListener("keydown", ev => {
 });
 
 /* ---------- demo mode ---------- */
-function setDemo(on) {
-  state.demo = on; $("demo-badge").hidden = !on;
+// Demo data is fictional, so it must never mix with a real check: demo mode ends as soon as the
+// article is edited or the Link tab is used, exiting clears everything the demo produced, and a check
+// only runs as a demo when its article was the demo article (state.article.demo).
+function setDemo(on, text = null) {
+  state.demo = on; state.demoText = on ? text : null; $("demo-badge").hidden = !on;
   $("replay").disabled = on; $("replay").closest(".switch").style.opacity = on ? .5 : "";
 }
+function resetChecks() {
+  state.gen++;  // any check still streaming stops updating the page
+  Object.assign(state, { article: null, experts: [], results: {}, calls: [], swrKey: null });
+  for (const id of ["review", "results-block", "result-actions", "banner"]) $(id).hidden = true;
+  $("rows").innerHTML = ""; $("results").innerHTML = ""; $("scope").textContent = ""; renderCalls();
+}
+function exitDemo(message) {
+  if (!state.demo) return;
+  setDemo(false); resetChecks(); toast(message);
+}
+$("text").addEventListener("input", () => { if (state.demo && $("text").value !== state.demoText) exitDemo("Demo mode off: you edited the article."); });
+$("url").addEventListener("input", () => exitDemo("Demo mode off: checking a real article."));
+$("tab-url").addEventListener("click", () => exitDemo("Demo mode off: checking a real article."));
 async function startDemo(btn) {
   busy(btn, "Loading demo");
   try {
     const r = await fetch("/api/demo");
     if (!r.ok) throw new Error("The demo article couldn't be loaded.");
     const { text } = await r.json();
-    setDemo(true); setMode("text", false); $("text").value = text;
+    setMode("text", false); $("text").value = text; setDemo(true, text);
     busy(btn);
     $("check").scrollIntoView({ behavior: smooth(), block: "start" });
     await findExperts();
@@ -628,32 +646,48 @@ async function startDemo(btn) {
 $("demo-btn").addEventListener("click", ev => startDemo(ev.currentTarget));
 
 /* ---------- name masking (demo safety) ---------- */
-function mask(s) {
-  let t = String(s ?? "");
-  if ($("mask").checked) state.experts.forEach((e, i) => {
-    if (!e.name) return;
-    const alias = "Expert " + String.fromCharCode(65 + i), parts = e.name.trim().split(/\s+/);
-    for (const p of [e.name.trim(), parts[parts.length - 1]]) if (p.length > 1) t = t.split(p).join(alias);
+// Whole words only (so "Lee" never changes "Leeds"), any case, and Unicode-aware. The full name also
+// matches URL slugs ("maren-okafor", "maren_okafor"), and the bare surname matches "/okafor" in links.
+const NAME_SUFFIXES = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "junior", "júnior", "filho", "neto", "sobrinho"]);
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function maskTerms() {
+  const terms = [];
+  state.experts.forEach((e, i) => {
+    const parts = (e.name || "").trim().split(/\s+/).filter(Boolean); if (parts.length < 2) return;
+    const named = parts.filter(p => !NAME_SUFFIXES.has(p.toLowerCase()));
+    const alias = "Expert " + String.fromCharCode(65 + i);
+    terms.push([parts.map(reEsc).join("[\\s\\-_.]+"), alias]);           // full name, also as a slug
+    const last = named[named.length - 1];
+    if (last && last.length > 1) terms.push([reEsc(last), alias]);     // surname on its own
   });
-  return esc(t);
+  return terms.map(([p, alias]) => [new RegExp(`(?<![\\p{L}\\p{N}])${p}(?![\\p{L}\\p{N}])`, "giu"), alias]);
 }
+function maskText(s) {
+  let t = String(s ?? "");
+  if ($("mask").checked) for (const [re, alias] of maskTerms()) t = t.replace(re, alias);
+  return t;
+}
+function mask(s) { return esc(maskText(s)); }
 
 /* ---------- step 1: find experts ---------- */
 $("f").addEventListener("submit", ev => { ev.preventDefault(); findExperts(); });
 
 async function findExperts() {
+  if ($("find").disabled) return;  // a search is already running (e.g. a second Ctrl+Enter)
   $("msg").textContent = "";
   const url = state.mode === "url" ? $("url").value.trim() : "", text = state.mode === "text" ? $("text").value : "";
   if (!url && !text.trim()) { $("msg").textContent = state.mode === "url" ? "Enter an article link." : "Paste the article text."; return; }
+  const demo = state.demo && !url && text === state.demoText;  // only the demo article runs on demo data
   busy($("find"), "Finding experts");
   $("review").hidden = false; showReviewSkeleton();
   $("review").scrollIntoView({ behavior: smooth(), block: "start" });
   try {
     const r = await fetch("/api/experts", { method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ url, text, replay: $("replay").checked, demo: state.demo }) });
+      body: JSON.stringify({ url, text, replay: $("replay").checked, demo }) });
     const data = await r.json().catch(() => ({ error: "The server sent an unreadable reply." }));
     if (!r.ok) throw new Error(data.error || r.statusText);
-    state.article = { url: data.article.url, text: data.text };
+    state.gen++;  // a new article: older checks still streaming must not touch the page
+    state.article = { url: data.article.url, text: data.text, demo };
     state.experts = data.experts.map(e => ({ ...e }));
     state.results = {}; state.calls = data.calls.slice();
     renderReview(); renderCalls(); $("results").innerHTML = ""; $("scope").textContent = "";
@@ -729,50 +763,59 @@ $("check-btn").addEventListener("click", () => {
   runStream(chosen, $("check-btn"), true);
 });
 
+// Each check is its own run with its own progress (order/idx), so a "This is them" re-check can stream
+// alongside the main check without mislabelling either. A run belongs to a generation: starting a new
+// full check or a new article bumps state.gen, and older runs then stop touching the page.
 async function runStream(experts, btn, full) {
-  busy(btn, "Checking"); state.running = true; state.order = []; state.idx = -1;
+  if (full) state.gen++;
+  const run = { gen: state.gen, full, order: [], idx: -1, names: experts.map(e => e.name.trim()) };
+  run.names.forEach(n => runOf.set(n, run));
+  state.active++; busy(btn, "Checking"); renderCalls();
   try {
     const r = await fetch("/api/check/stream", { method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ url: state.article.url, text: state.article.text, replay: $("replay").checked, demo: state.demo,
+      body: JSON.stringify({ url: state.article.url, text: state.article.text, replay: $("replay").checked, demo: !!state.article.demo,
         experts: experts.map(e => ({ name: e.name.trim(), affiliation: e.affiliation, role: e.role, context: e.context, orcid: e.orcid, added: e.added })) }) });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
     const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
     for (;;) {
       const { value, done } = await reader.read(); if (done) break;
       buf += dec.decode(value, { stream: true });
-      let nl; while ((nl = buf.indexOf("\n")) >= 0) { handle(JSON.parse(buf.slice(0, nl)), full); buf = buf.slice(nl + 1); }
+      let nl; while ((nl = buf.indexOf("\n")) >= 0) { handle(JSON.parse(buf.slice(0, nl)), run); buf = buf.slice(nl + 1); }
     }
   } catch (e) {
-    // Never leave cards spinning: mark whatever was still pending as failed, with a retry.
-    for (const ex of experts) { const n = ex.name.trim(); if (state.results[n] && (state.results[n].status === "checking" || state.results[n].stale))
-      state.results[n] = { ...state.results[n], stale: false, status: "error", error: e.message || "The connection was lost." }; }
-    renderResults(); showBanner("", false);
-  } finally { state.running = false; busy(btn); }
+    // Never leave this run's cards spinning: mark them failed, with a retry.
+    failPending(run, e.message || "The connection was lost.");
+  } finally { state.active--; busy(btn); renderCalls(); }
 }
 
-function handle(ev, full) {
-  if (ev.type === "start") { state.order = ev.experts; state.idx = 0; renderResults(); }
+function failPending(run, error) {
+  if (run.gen !== state.gen) return;
+  for (const n of run.names) { const r = state.results[n];
+    if (r && (r.status === "checking" || r.stale)) state.results[n] = { ...r, stale: false, status: "error", error }; }
+  renderResults(); if (run.full) showBanner("", false);
+  $("result-actions").hidden = false;
+}
+
+function handle(ev, run) {
+  if (run.gen !== state.gen) return;  // superseded by a newer check or article
+  if (ev.type === "start") { run.order = ev.experts; run.idx = 0; renderResults(); }
   else if (ev.type === "call") {
     state.calls.push(ev.call); renderCalls();
-    const name = state.order[state.idx], res = name && state.results[name];
+    const name = run.order[run.idx], res = name && state.results[name];
     if (res && res.status === "checking") {
       const step = STEPS.find(s => s[2].includes(ev.call.api));
       if (step) { res.progress = res.progress || {}; for (const s of STEPS) { if (s === step) break; res.progress[s[0]] = res.progress[s[0]] || "done"; }
         res.progress[step[0]] = "active"; updateCard(name); }
     }
   }
-  else if (ev.type === "expert") { state.results[ev.expert.name] = ev.expert; state.idx++; updateCard(ev.expert.name); }
+  else if (ev.type === "expert") { state.results[ev.expert.name] = ev.expert; run.idx++; updateCard(ev.expert.name); }
   else if (ev.type === "done") {
     $("scope").textContent = ev.result.scope_note;
-    if (full) { saveResult(); showBanner(state.swrKey && $("banner").textContent ? "Up to date." : "", true); }
-    else saveResult();
+    saveResult();
+    if (run.full) showBanner(state.swrKey && $("banner").textContent ? "Up to date." : "", true);
     $("result-actions").hidden = false;
   }
-  else if (ev.type === "error") {
-    for (const n of Object.keys(state.results)) if (state.results[n].status === "checking" || state.results[n].stale)
-      state.results[n] = { ...state.results[n], stale: false, status: "error", error: ev.error };
-    renderResults(); showBanner("", false); $("result-actions").hidden = false;
-  }
+  else if (ev.type === "error") failPending(run, ev.error);
 }
 
 /* ---------- result card actions ---------- */
@@ -801,7 +844,7 @@ document.addEventListener("click", ev => {
   if (act === "retry-find") findExperts();
   else if (act === "replay-off") { $("replay").checked = false; $("replay").dataset.touched = "1"; findExperts(); }
   else if (act === "demo") startDemo(b);
-  else if (act === "exit-demo") { setDemo(false); $("text").value = ""; setMode("url"); toast("Demo mode off."); }
+  else if (act === "exit-demo") { exitDemo("Demo mode off. Demo results cleared."); $("text").value = ""; setMode("url"); }
   else if (act === "add") addExpert();
   else if (act === "edit-experts") $("review").scrollIntoView({ behavior: smooth(), block: "start" });
   else if (act === "copy") copySummary();
@@ -823,26 +866,28 @@ function errorBox(msg, retryAct) {
 }
 
 function summaryText() {
-  const lines = [`Conflict Check: ${state.article?.url || "pasted article"}${state.demo ? " (demo, fictional data)" : ""}`, ""];
+  const lines = [`Conflict Check: ${state.article?.url || "pasted article"}${state.article?.demo ? " (demo, fictional data)" : ""}`, ""];
   for (const e of Object.values(state.results)) {
     lines.push(`${e.name}${e.affiliation ? ", " + e.affiliation : ""}: ${STATUS[e.status] || e.status}`);
     for (const t of e.ties || []) lines.push(`  - ${t.org} (${t.category || t.relation}; ${t.related_to_story ? "named in this story" : "not named in this story"}): ${t.evidence[0]?.url || ""}`);
   }
-  let out = lines.join("\n");
-  if ($("mask").checked) state.experts.forEach((e, i) => { if (e.name) { const parts = e.name.trim().split(/\s+/);
-    for (const p of [e.name.trim(), parts[parts.length - 1]]) if (p.length > 1) out = out.split(p).join("Expert " + String.fromCharCode(65 + i)); } });
-  return out;
+  return maskText(lines.join("\n"));  // masks names in text and in links (".../people/maren-okafor")
 }
 async function copySummary() {
   try { await navigator.clipboard.writeText(summaryText()); toast("Summary copied."); }
   catch (e) { toast("Couldn't copy. Use Download report instead."); }
 }
 function downloadReport() {
-  const blob = new Blob([JSON.stringify({ generated: new Date().toISOString(), demo: state.demo, article: { url: state.article?.url },
-    experts: Object.values(state.results), calls: state.calls }, null, 1)], { type: "application/json" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "conflict-check-report.json";
+  const masked = $("mask").checked;
+  const json = JSON.stringify({ generated: new Date().toISOString(), demo: !!state.article?.demo, masked,
+    article: { url: state.article?.url }, experts: Object.values(state.results), calls: state.calls }, null, 1);
+  // With Mask names on, the file is masked too (whole words and link slugs); the replacement contains
+  // no quotes or backslashes, so the JSON stays valid.
+  const blob = new Blob([maskText(json)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = masked ? "conflict-check-report-masked.json" : "conflict-check-report.json";
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast("Report downloaded.");
+  toast(masked ? "Masked report downloaded." : "Report downloaded.");
 }
 
 /* ---------- How it works: expand with a view transition ---------- */
@@ -874,8 +919,10 @@ $("how-grid").addEventListener("click", ev => {
   const card = t.closest(".how-card"); toggleHow(card, !card.classList.contains("expanded"));
 });
 document.addEventListener("keydown", ev => {
-  const open = document.querySelector(".how-card.expanded");
-  if (ev.key === "Escape" && open) toggleHow(open, false);
+  if (ev.key !== "Escape") return;
+  if (ev.target.closest?.("input, textarea, select, [contenteditable]")) return;  // Esc while typing isn't for the cards
+  const open = document.activeElement?.closest?.(".how-card.expanded") || document.querySelector(".how-card.expanded");
+  if (open) toggleHow(open, false);
 });
 
 /* ---------- rendering ---------- */
@@ -901,7 +948,8 @@ function identityHtml(e) {
   return `<p class="identity">${mask(id.reason)}${link}</p>${cands}`;
 }
 function pendingHtml(e) {
-  const p = e.progress || {}, waiting = state.order.length && state.order[state.idx] !== e.name;
+  const run = runOf.get(e.name);
+  const p = e.progress || {}, waiting = !!(run && run.order.length && run.order[run.idx] !== e.name);
   return `<article class="card result pending" data-card="${esc(e.name)}" aria-busy="true">
     <div class="r-head"><div><h3>${mask(e.name)}</h3><div class="who">${mask(e.affiliation || "")}</div></div>
       <span class="chip checking">${waiting ? "Queued" : "Checking"}</span></div>
@@ -942,7 +990,8 @@ function updateCard(name) {
   const fresh = [...$("results").querySelectorAll("[data-card]")].find(c => c.dataset.card === name);
   fresh?.querySelectorAll("details").forEach((d, i) => { if (open[i]) d.open = true; });
   // the next queued card now shows "Checking"
-  const next = state.order[state.idx]; if (next && next !== name && state.results[next]?.status === "checking") updateCard(next);
+  const run = runOf.get(name), next = run && run.order[run.idx];
+  if (next && next !== name && state.results[next]?.status === "checking") updateCard(next);
 }
 function renderCalls() {
   const by = {}; state.calls.forEach(c => by[c.api] = (by[c.api] || 0) + 1);
@@ -950,7 +999,7 @@ function renderCalls() {
   $("calls").innerHTML = state.calls.map(c => `<div class="call"><div class="top"><span class="api ${esc(c.api)}">${esc(c.api)}</span>
     <span class="meta ${esc(c.source)}">${esc(c.source)} · ${c.ms} ms</span></div><span class="label">${mask(c.label)}</span>
     ${c.error ? `<span class="meta error">${esc(c.error)}</span>` : ""}</div>`).join("")
-    || (state.running ? [1, 2, 3].map(() => `<div class="call" aria-hidden="true"><span class="skel line" style="width:40%"></span><span class="skel line"></span></div>`).join("")
+    || (state.active > 0 ? [1, 2, 3].map(() => `<div class="call" aria-hidden="true"><span class="skel line" style="width:40%"></span><span class="skel line"></span></div>`).join("")
                       : `<p class="hint">No calls yet.</p>`);
   $("calls").scrollTop = $("calls").scrollHeight;
 }
