@@ -300,3 +300,54 @@ class TestBadgeTimeout(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 urllib_fetcher("POST", "https://api.exa.ai/search", {}, {}, sleep=lambda s: None)
             self.assertEqual(seen, [45, 45, 45])  # others keep 45 s and the retries
+
+
+class TestInstitutionAliases(unittest.TestCase):
+    def resolve(self, institutions_by_record, affiliation="University of California San Francisco"):
+        from conflict_check.identity import resolve_identity
+
+        def fetch(method, url, headers, body):
+            if "affiliation-org-name" in url.replace("%3A", ":").replace("%22", '"') or "affiliation-org-name" in url:
+                return {"expanded-result": None}  # the exact-institution search finds nothing
+            return {"expanded-result": [{"orcid-id": f"0000-0000-0000-000{i}", "given-names": "Joaquin",
+                                          "family-names": "Anguera", "institution-name": inst}
+                                         for i, inst in enumerate(institutions_by_record)]}
+        return resolve_identity(Session(cache_dir=None, fetcher=fetch), "Joaquin Anguera", affiliation)
+
+    def test_alias_spelling_of_the_institution_confirms_a_single_record(self):
+        r = self.resolve([["California State University Northridge", "UC San Francisco"]])
+        self.assertEqual(r["status"], "confirmed")
+        self.assertIn("UC San Francisco", r["reason"])
+
+    def test_two_records_at_the_institution_stay_unconfirmed(self):
+        r = self.resolve([["UC San Francisco"], ["UCSF"]])
+        self.assertEqual(r["status"], "not_confirmed")
+
+    def test_a_record_with_no_institution_or_another_campus_is_not_enough(self):
+        self.assertEqual(self.resolve([[]])["status"], "not_confirmed")
+        self.assertEqual(self.resolve([["University of California San Diego"]])["status"], "not_confirmed")
+        self.assertEqual(self.resolve([["University of California"]])["status"], "not_confirmed")
+
+
+class TestSearchRequests(unittest.TestCase):
+    def test_three_searches_with_the_intended_parameters_and_one_page_per_url(self):
+        sent = []
+
+        def fetch(method, url, headers, body):
+            sent.append((url.rsplit("/", 1)[-1], body))
+            if "api.exa.ai" in url:
+                return {"results": [{"url": "https://example.org/p", "title": "P", "text": PAPER}]}  # same page twice
+            return {"results": [{"url": "https://example.org/w", "title": "W", "raw_content": UNRELATED}]}
+
+        s = Session(cache_dir=None, tavily_key="t", exa_key="e", fetcher=fetch)
+        pages = gather_pages(s, "Maren Okafor", "Lakeside University")
+        exa = [b for u, b in sent if u == "search" and "contents" in b]
+        tav = [b for u, b in sent if u == "search" and "include_raw_content" in b]
+        self.assertEqual(len(exa), 2)
+        self.assertEqual(sum("includeText" in b for b in exa), 1)
+        recent = next(b for b in exa if "includeText" in b)
+        self.assertEqual(recent["includeText"], ["Maren Okafor"])
+        self.assertRegex(recent["startPublishedDate"], r"^\d{4}-01-01T")
+        self.assertTrue(all("highlights" in b["contents"] for b in exa))
+        self.assertEqual((len(tav), tav[0]["search_depth"]), (1, "advanced"))
+        self.assertEqual(sorted(p["url"] for p in pages), ["https://example.org/p", "https://example.org/w"])

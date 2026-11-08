@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -80,14 +81,28 @@ def with_highlights(hit: dict) -> str:
     return text + ("\n\n" + "\n\n".join(extra) if extra else "")
 
 
+def recent_cutoff() -> str:
+    """Disclosures usually cover the last 36 months, so the second Exa query looks at the last three years."""
+    return f"{datetime.date.today().year - 3}-01-01T00:00:00.000Z"
+
+
 def gather_pages(s: Session, name: str, affiliation: str | None) -> list[dict]:
-    """Exa research-paper search (papers carry conflict statements) + Tavily web search/extract."""
+    """Exa research-paper searches (papers carry conflict statements) + Tavily web search.
+
+    Three searches run side by side, because each finds people the others miss: Exa on the disclosure wording,
+    Exa again restricted to recent papers that contain the person's name, and Tavily in plain language at
+    advanced depth (its basic depth ignored most of the query)."""
     aff = affiliation or ""
     pages: list[dict] = []
-    with ThreadPoolExecutor(max_workers=2) as pool:  # the two searches don't depend on each other
+    cutoff = recent_cutoff()
+    with ThreadPoolExecutor(max_workers=3) as pool:
         exa_f = pool.submit(exa_search, s, f'"{name}" {aff} competing interests disclosure', 5, "research paper")
-        tav_f = pool.submit(tavily_search, s, f'"{name}" {aff} consultant OR "advisory board" OR "conflict of interest"', 5, True)
-        exa_hits, hits = exa_f.result(), tav_f.result()
+        recent_f = pool.submit(exa_search, s, f'"{name}" {aff} competing interests disclosure', 5, "research paper",
+                               name, cutoff)
+        tav_f = pool.submit(tavily_search, s, f"{name} {aff} financial disclosures conflict of interest "
+                                              f"consulting advisory board", 5, True, "advanced")
+        exa_hits, recent_hits, hits = exa_f.result(), recent_f.result(), tav_f.result()
+    exa_hits = list({r.get("url"): r for r in [*exa_hits, *recent_hits] if r.get("url")}.values())  # one per page
     for r in exa_hits:
         pages.append({"url": r.get("url"), "title": r.get("title"), "text": with_highlights(r), "api": "exa",
                       "published": r.get("publishedDate")})

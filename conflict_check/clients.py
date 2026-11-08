@@ -10,9 +10,11 @@ EXA = "https://api.exa.ai"
 ORCID = "https://pub.orcid.org/v3.0"
 
 
-def tavily_search(s: Session, query: str, max_results: int = 5, raw_content: bool = False) -> list[dict]:
-    """raw_content=True returns each page's text with the hits, saving a separate extract call."""
-    body = {"query": query, "max_results": max_results, "search_depth": "basic"}
+def tavily_search(s: Session, query: str, max_results: int = 5, raw_content: bool = False,
+                  depth: str = "basic") -> list[dict]:
+    """raw_content=True returns each page's text with the hits, saving a separate extract call.
+    depth="advanced" costs 2 credits instead of 1 but ranks pages by relevance to the whole query."""
+    body = {"query": query, "max_results": max_results, "search_depth": depth}
     if raw_content:
         body["include_raw_content"] = True
     data = s.request(
@@ -39,7 +41,8 @@ HIGHLIGHT_QUERY = ("competing interests, conflicts of interest, disclosures: con
                    "grants, honoraria, stock, employee")
 
 
-def exa_search(s: Session, query: str, num_results: int = 5, category: str | None = None) -> list[dict]:
+def exa_search(s: Session, query: str, num_results: int = 5, category: str | None = None,
+               include_text: str | None = None, since: str | None = None) -> list[dict]:
     """Exa search with page text included. category e.g. 'research paper'."""
     body = {
         "query": query,
@@ -52,8 +55,12 @@ def exa_search(s: Session, query: str, num_results: int = 5, category: str | Non
     }
     if category:
         body["category"] = category
+    if include_text:  # only pages that contain this exact string (e.g. the expert's name)
+        body["includeText"] = [include_text]
+    if since:  # ISO date: only pages published on or after it
+        body["startPublishedDate"] = since
     data = s.request(
-        "exa", f"search{' [' + category + ']' if category else ''}: {query}", "POST", f"{EXA}/search",
+        "exa", f"search{' [' + category + ']' if category else ''}{' recent' if since else ''}: {query}", "POST", f"{EXA}/search",
         {"x-api-key": s.key("exa")}, body,
     )
     return data.get("results") or []
