@@ -330,3 +330,10 @@ class TestEmployerSpellings(unittest.TestCase):
             page = f"Maren Okafor is supported by grants from {spelling} and from Halden Biotech."
             self.assertEqual(set(ties(page, exclude=["University of California San Francisco"])), {"Halden Biotech"},
                              spelling)
+
+
+class TestStudyAndFragmentNoise(unittest.TestCase):
+    def test_study_names_and_cut_off_names_are_not_payers(self):
+        t = ties("Maren Okafor reports grants from the AHEAD Study, the Association for Clinical, "
+                 "Kidney Diseases and Veltrix Pharmaceuticals.")
+        self.assertEqual(set(t), {"Veltrix Pharmaceuticals"})

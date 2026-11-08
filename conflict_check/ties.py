@@ -91,7 +91,8 @@ NOT_ORGS = {
     "denmark", "israel", "japan", "switzerland", "suisse", "geneva", "germany", "france", "italy", "spain", "china",
     "india", "australia", "netherlands", "sweden", "norway", "brazil", "korea", "singapore", "ireland", "belgium",
     "austria", "finland", "poland", "mexico", "taiwan", "montreal", "toronto", "paris", "berlin", "tokyo",
-    "cardiology", "oncology", "neurology", "psychiatry", "surgery", "transplant", "amyloidosis", "thanks", "brain", "louis", "directors", "chair", "diplomate", "neuroengineering", "jennifer",
+    "cardiology", "oncology", "neurology", "psychiatry", "surgery", "transplant", "amyloidosis", "digestive", "kidney", "diseases", "dementia", "metabolic", "ceo", "cfo", "cto", "davie",
+    "thanks", "brain", "louis", "directors", "chair", "diplomate", "neuroengineering", "jennifer",
     "social", "sciences", "aging", "medicine", "preventive", "epidemiology", "cardiovascular", "associate",
     "assistant", "medical", "population", "magerstadt", "clinical", "research",
 }
@@ -105,7 +106,9 @@ AWARD_WORDS = {"grant", "grants", "award", "awards", "fellowship", "scholarship"
 # A new clause about the person, not about who pays: ", and her work has appeared in …"
 CLAUSE_CUT = re.compile(r",\s*(?:and\s+|but\s+|while\s+)?(?=(?:he|she|they|his|her|their)\b)", re.I)
 # Roles and committees, not payers: "Associate Editor of JAMA Cardiology", "Joint Committee", "R-and U-level".
-NON_PAYER = re.compile(r"\b(?:committees?|guidelines?|working\s+group|editors?|editorial|chair|level)\b|-level\b", re.I)
+NON_PAYER = re.compile(r"\b(?:committees?|guidelines?|working\s+group|editors?|editorial|chair|level|study|trial)\b|-level\b"
+                       r"|\b(?:for|of|on)\s+(?:clinical|metabolic|medical|applied|american|national|general)$", re.I)
+CUT_OFF = re.compile(r"\s[A-Z][a-z]$")  # a name chopped mid-word: "Metabolic So"
 # A colleague named with credentials: "[Mandar Aras, MD, PhD]" is a person, not an organization.
 CREDENTIALS = re.compile(r"^[,\s]*(?:MD|M\.D\.|PhD|DO|MPH|MSc|MBBS|RN|FACC|DPhil)\b")
 # Units of a university or hospital. A job there ("director of the Center for X") is not an outside tie.
@@ -329,7 +332,7 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
             continue  # wiki link slugs ("Hedge_fund"), units of a university, "All of Us" fragments
         if all(t.lower().strip(".,") in NOT_ORGS | CONNECTORS for t in toks):
             continue
-        if CREDENTIALS.match(text[m.end():]) or NON_PAYER.search(org):
+        if CREDENTIALS.match(text[m.end():]) or NON_PAYER.search(org) or CUT_OFF.search(org):
             continue
         if (JOURNAL.search(org) or CODE_NAME.fullmatch(org) or GRANT_ID.search(org) or CERTIFIER.search(org)
                 or toks[-1].lower() in AWARD_WORDS):
