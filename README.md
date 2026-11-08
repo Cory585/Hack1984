@@ -60,7 +60,7 @@ Each expert ends in one of these states:
 
 | Status | Meaning |
 |---|---|
-| Connections the article didn't mention | Verified ties found. Ties to companies named in the story come first; others and ones the article disclosed are collapsed. |
+| N connections not in the article | Verified ties found. Ties to companies named in the story are shown first under **Not in the article**; ties to other companies are behind "Show N more", and ties the article already mentioned are in a separate collapsed section. |
 | No confirmed connections | Identity confirmed, nothing found. A normal result. |
 | Identity not confirmed | ORCID didn't return exactly one match. No search is run and no ties are shown. |
 | Error | The evidence search failed (e.g. a missing key or a replay-mode cache miss). The identity result is still shown. |
@@ -89,7 +89,7 @@ flowchart TD
     F -->|Check selected experts| G[[Skeleton cards + step tracker<br/>Identity → Papers → Web → Payments<br/>API activity streams live]]
     G -->|"seen before (stale-while-revalidate)"| G1[Last result shown instantly,<br/>marked Updating] --> G
     G --> H["② Results, one card per expert"]
-    H --> S1[Connections not mentioned<br/>quotes · sources · Open Payments badge]
+    H --> S1[Connections not in the article<br/>quotes · sources · Open Payments badge]
     H --> S2[No confirmed connections]
     H --> S3[Identity not confirmed]
     H --> S4[Error]

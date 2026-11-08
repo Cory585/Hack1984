@@ -204,6 +204,7 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 @media (max-width: 640px) { .person { grid-template-columns: auto minmax(0, 1fr); } .person .aff { grid-column: 2; } }
 .review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4); margin-top: var(--sp-4); }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: 0; }
+.tie-group { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--flag); }
 
 /* ---------- results ---------- */
 .results-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: var(--sp-5); align-items: start; }
@@ -576,7 +577,8 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
         <div class="preview-stack" inert>
           <article class="card result">
             <div class="r-head"><div><h3>Maren Okafor</h3><div class="who">Cardiologist, Lakeside University</div></div>
-              <span class="chip connections_found">Connections not mentioned</span></div>
+              <span class="chip connections_found">1 connection not in the article</span></div>
+            <h4 class="tie-group">Not in the article</h4>
             <div class="tie"><div class="tie-head"><b>Veltrix Pharmaceuticals</b><span class="tag">consulting</span><span class="rel strong">Strong · 100</span></div>
               <blockquote>“M.O. reports consulting fees from Veltrix Pharmaceuticals.”<span class="src">Journal of Cardiac Care · 2025 · via exa</span></blockquote>
               <div class="op"><b>$51,072.80</b> in 8 payments from Veltrix to a cardiologist in Lakeside, MN.<small>CMS Open Payments · name match</small></div>
@@ -783,7 +785,10 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const MAX = 5;
-const STATUS = { connections_found: "Connections not mentioned", no_confirmed_connections: "No confirmed connections",
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const statusLabel = e => e.status === "connections_found"
+  ? `${plural((e.ties || []).length, "connection")} not in the article` : STATUS[e.status] || e.status;
+const STATUS = { connections_found: "Connections not in the article", no_confirmed_connections: "No confirmed connections",
   identity_not_confirmed: "Identity not confirmed", error: "Error", checking: "Checking" };
 const STEPS = [["identity", "Identity", ["orcid"]], ["papers", "Papers", ["exa"]], ["web", "Web", ["tavily"]], ["payments", "Payments", ["openpayments"]]];
 const state = { article: null, experts: [], results: {}, calls: [], mode: "url", demo: false, demoText: null,
@@ -1259,12 +1264,13 @@ function cardHtml(e) {
     actions.push(`<button class="btn secondary small" type="button" data-edit="1" data-name="${esc(e.name)}">Edit name or affiliation</button>`);
   return `<article class="card result ${e.stale ? "stale" : ""}" data-card="${esc(e.name)}">
     <div class="r-head"><div><h3>${mask(e.name)}</h3><div class="who">${mask(who)}</div></div>
-      <div>${e.stale ? `<span class="updating"><span class="spinner" aria-hidden="true"></span>Updating</span> ` : ""}<span class="chip ${e.status}">${STATUS[e.status] || esc(e.status)}</span></div></div>
+      <div>${e.stale ? `<span class="updating"><span class="spinner" aria-hidden="true"></span>Updating</span> ` : ""}<span class="chip ${e.status}">${esc(statusLabel(e))}</span></div></div>
     ${identityHtml(e)}
     ${e.error ? `<p class="msg" style="text-align:left">${esc(e.error)}</p>` : ""}
+    ${ties.length ? `<h4 class="tie-group">Not in the article</h4>` : ""}
     ${related.map(t => tieHtml(t, "")).join("")}
-    ${other.length ? `<details><summary>${other.length} other connection${other.length === 1 ? "" : "s"}, not named in this story</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
-    ${(e.disclosed || []).length ? `<details><summary>${e.disclosed.length} connection${e.disclosed.length === 1 ? "" : "s"} the article disclosed</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
+    ${other.length ? `<details><summary>${related.length ? "Show " + other.length + " more" : "Show " + plural(other.length, "connection")}: companies the story doesn't name</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
+    ${(e.disclosed || []).length ? `<details><summary>${plural(e.disclosed.length, "connection")} the article already mentioned</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
     ${e.badges_pending ? `<p class="hint"><span class="spinner" aria-hidden="true"></span> Checking CMS Open Payments. Scores may change.</p>` : ""}
     ${e.coverage ? coverageHtml(e) : e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
     ${actions.length ? `<div class="card-actions">${actions.join("")}</div>` : ""}
