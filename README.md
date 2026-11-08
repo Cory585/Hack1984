@@ -56,6 +56,8 @@ Every call goes through `session.Session`, which caches each response to disk (k
 3. **Check.** Results stream in one expert at a time, and every Tavily, Exa, ORCID and Open Payments call appears in the **API calls** panel as it happens.
 4. **Pick the right person if asked.** If ORCID can't confirm the expert on its own, the card lists candidate records. Click **This is them** to re-run that expert. The picked ORCID iD is re-checked against the expert's surname.
 
+Each card shows the 5 strongest connections first (named-in-the-story ones lead), each with one trimmed quote you can expand; the rest, including weak matches, are behind **Show the other N**. Replay mode lives under **Advanced** on the form.
+
 Each expert ends in one of these states:
 
 | Status | Meaning |

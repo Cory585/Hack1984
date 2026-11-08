@@ -204,6 +204,14 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 @media (max-width: 640px) { .person { grid-template-columns: auto minmax(0, 1fr); } .person .aff { grid-column: 2; } }
 .review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4); margin-top: var(--sp-4); }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: 0; }
+.adv { display: inline-block; } .adv summary { min-height: 44px; margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.adv[open] { display: block; flex-basis: 100%; }
+.tie-note { margin: calc(var(--sp-2) * -1) 0 0; }
+blockquote.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.q-more { all: unset; cursor: pointer; color: var(--accent); font-size: var(--fs-sm); font-weight: 700; margin-top: calc(var(--sp-2) * -1); }
+.q-more:hover { text-decoration: underline; } .q-more:focus-visible { outline: 3px solid var(--accent-3); outline-offset: 2px; border-radius: 4px; }
+.tag.story { color: var(--accent); border-color: var(--accent); }
+details.more-src { border-top: 0; padding-top: 0; } details.more-src summary { min-height: 32px; margin: 0; font-size: var(--fs-sm); }
 .tie-group { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--flag); }
 
 /* ---------- results ---------- */
@@ -549,7 +557,7 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
   <div class="hero-grid">
     <div class="hero-main" id="check">
       <h1><span class="line chrome">Who pays</span> <span class="line holo">the experts?</span></h1>
-      <p class="sub">Paste a health news article. Conflict Check confirms who each quoted expert is, then finds the funding, consulting and board ties the story didn't mention, with a source for every one.</p>
+      <p class="sub">Paste a health news article. Conflict Check confirms who each quoted expert is, then finds the funding, consulting and board connections the story didn't mention, with a source for every one.</p>
     <form id="f" class="card input-card" aria-label="Check an article">
       <div class="demo-badge" id="demo-badge" hidden><svg class="i fill" aria-hidden="true"><use href="#i-sparkle"/></svg>Demo · fictional data
         <button type="button" data-act="exit-demo"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg>Exit</button></div>
@@ -561,8 +569,10 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
       <textarea class="field field-lg" id="text" placeholder="Paste the full article text here" aria-label="Article text" hidden></textarea>
       <div class="controls">
         <div class="toggles">
-          <label class="switch"><input type="checkbox" id="replay"><span class="track"></span>Replay mode</label>
           <label class="switch"><input type="checkbox" id="mask"><span class="track"></span>Mask names</label>
+          <details class="adv"><summary>Advanced</summary>
+            <label class="switch" title="Answer only from saved responses: no network, no API credits"><input type="checkbox" id="replay"><span class="track"></span>Replay saved results (offline)</label>
+          </details>
         </div>
         <div class="actions">
           <button class="btn secondary" id="demo-btn" type="button"><svg class="i fill" aria-hidden="true"><use href="#i-play"/></svg>Try the demo</button>
@@ -670,18 +680,18 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
       </article>
       <article class="card how-card" style="view-transition-name: how-3">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-3">
-          <div class="num">03</div><h4>Find disclosed ties</h4>
-          <p>Exa searches research papers and Tavily searches the web. A tie counts only if a page names both the person and the organization.</p>
+          <div class="num">03</div><h4>Find disclosed connections</h4>
+          <p>Exa searches research papers and Tavily searches the web. A connection counts only if a page names both the person and the organization.</p>
           <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
         <div class="more" id="how-more-3" hidden>
           <div><h5>Where it looks</h5><ul>
             <li>Exa research-paper search for the expert's own conflict-of-interest statements.</li>
             <li>Tavily search and extract for bios, board pages and disclosures.</li></ul></div>
-          <div><h5>What counts as a tie</h5><ul>
-            <li>A sentence about this person (by name, initials, or he/she right after) with a tie word (consulting, grants, advisory board, stock…) and an organization.</li>
+          <div><h5>What counts as a connection</h5><ul>
+            <li>A sentence about this person (by name, initials, or he/she right after) with a connection word (consulting, grants, advisory board, stock…) and an organization.</li>
             <li>In “J.L. reports grants from A; M.O. reports fees from B”, only B belongs to M.O.</li>
-            <li>“Declares no competing interests” is never a tie. Every quote is checked against its page.</li></ul></div>
-          <div class="example"><b>Then it sorts them.</b> Ties to companies named in the story come first. Ties the article already disclosed are folded away. Spellings like “AstraZeneca” and “Astra Zeneca” are merged.</div>
+            <li>“Declares no competing interests” is never a connection. Every quote is checked against its page.</li></ul></div>
+          <div class="example"><b>Then it sorts them.</b> Connections to companies named in the story come first. Connections the article already disclosed are folded away. Spellings like “AstraZeneca” and “Astra Zeneca” are merged.</div>
           <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
@@ -692,10 +702,10 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
           <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
         <div class="more" id="how-more-4" hidden>
           <div><h5>What it adds</h5><ul>
-            <li>For each tie already found, it looks up <span data-op-years>2024 and 2025</span> payments from that company to a clinician with that name.<span data-op-off hidden> (Turned off on this server.)</span></li>
+            <li>For each connection already found, it looks up <span data-op-years>2024 and 2025</span> payments from that company to a clinician with that name.<span data-op-off hidden> (Turned off on this server.)</span></li>
             <li>The badge shows total, number of payments, payment types, city, state and NPI.</li></ul></div>
           <div><h5>What it won't do</h5><ul>
-            <li>Create a tie on its own. It only supports one found in papers or bios.</li>
+            <li>Create a connection on its own. It only supports one found in papers or bios.</li>
             <li>Show a badge when several clinicians with that name were paid. That's ambiguous, so it's withheld.</li>
             <li>Prove identity. Open Payments lists location, not employer, so check the city.</li></ul></div>
           <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
@@ -711,15 +721,15 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
       <article class="card how-card" style="view-transition-name: lim-1">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-1">
           <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></div>
-          <h4>Ties never disclosed</h4><p>It finds connections disclosed somewhere else, in papers, bios and payment records. A tie that was never written down anywhere can't be found.</p>
+          <h4>Connections never disclosed</h4><p>It finds connections disclosed somewhere else, in papers, bios and payment records. A connection that was never written down anywhere can't be found.</p>
           <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
         <div class="more" id="lim-more-1" hidden>
           <div><h5>What it can miss</h5><ul>
-            <li>Ties that were never disclosed in any paper, bio or filing.</li>
+            <li>Connections that were never disclosed in any paper, bio or filing.</li>
             <li>Disclosures behind paywalls, in PDFs search can't read, or on pages search doesn't index.</li>
             <li>Disclosures written in unusual ways, such as a table instead of sentences.</li></ul></div>
           <div><h5>How to read a clean result</h5><ul>
-            <li>“No confirmed connections” means no evidence was found. It doesn't prove there are no ties.</li>
+            <li>“No confirmed connections” means no evidence was found. It doesn't prove there are no connections.</li>
             <li>For an important story, check the expert's own recent papers and the journal's disclosure forms too.</li></ul></div>
           <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
@@ -753,7 +763,7 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
             <li>Researchers outside the US, and payments from non-manufacturers, aren't in it.</li></ul></div>
           <div><h5>Why it's only a badge</h5><ul>
             <li>Records list name, city and state, not employer, so a name match can be a different person.</li>
-            <li>The badge only appears on a tie already found in papers or bios, and it's withheld when several physicians match.</li></ul></div>
+            <li>The badge only appears on a connection already found in papers or bios, and it's withheld when several physicians match.</li></ul></div>
           <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
@@ -785,6 +795,7 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const MAX = 5;
+const SHOWN = 5;  // connections shown per expert before "Show the other N"
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const statusLabel = e => e.status === "connections_found"
   ? `${plural((e.ties || []).length, "connection")} not in the article` : STATUS[e.status] || e.status;
@@ -1216,9 +1227,16 @@ function tieCategories(t) {  // every kind of tie found, most serious first (the
   const cats = (t.categories && t.categories.length ? t.categories : [t.category || t.relation]).slice();
   return cats.sort((a, b) => (CATEGORY_RANK.indexOf(a) + 99) % 99 - (CATEGORY_RANK.indexOf(b) + 99) % 99);
 }
+function quoteHtml(e) {
+  const long = (e.quote || "").length > 200;
+  return `<blockquote${long ? ' class="clamp"' : ""}>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}${e.matched_by ? " · named by " + esc(e.matched_by) : ""}</span></blockquote>${long ? `<button type="button" class="q-more" aria-expanded="false">Show full quote</button>` : ""}`;
+}
 function tieHtml(t, cls) {
-  const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}${e.matched_by ? " · named by " + esc(e.matched_by) : ""}</span></blockquote>`).join("");
-  const tags = tieCategories(t).map(c => `<span class="tag">${esc(c)}</span>`).join("");
+  const [first, ...more] = t.evidence;
+  const ev = (first ? quoteHtml(first) : "") + (more.length
+    ? `<details class="more-src"><summary>${plural(more.length, "more source")}</summary>${more.map(quoteHtml).join("")}</details>` : "");
+  const tags = (cls !== "disc" && t.related_to_story ? `<span class="tag story">In the story</span>` : "") +
+    tieCategories(t).map(c => `<span class="tag">${esc(c)}</span>`).join("");
   return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b>${tags}${relPill(t.reliability)}</div>${ev}${badge(t.open_payments)}
     ${relWhy(t.reliability, "tie")}</div>`;
 }
@@ -1256,7 +1274,11 @@ function pendingHtml(e) {
 }
 function cardHtml(e) {
   if (e.status === "checking") return pendingHtml(e);
-  const ties = e.ties || [], related = ties.filter(t => t.related_to_story), other = ties.filter(t => !t.related_to_story);
+  const ties = e.ties || [];
+  const ranked = [...ties.filter(t => t.related_to_story), ...ties.filter(t => !t.related_to_story)];  // server order within each
+  let top = ranked.filter(t => (t.reliability || {}).label !== "Weak").slice(0, SHOWN);
+  if (!top.length) top = ranked.slice(0, 3);
+  const rest = ranked.filter(t => !top.includes(t)), weak = rest.filter(t => (t.reliability || {}).label === "Weak").length;
   const who = [e.role, e.affiliation].filter(Boolean).join(", ") || "No role or affiliation given";
   const actions = [];
   if (e.status === "error") actions.push(`<button class="btn small" type="button" data-retry="1" data-name="${esc(e.name)}">Retry</button>`);
@@ -1267,15 +1289,21 @@ function cardHtml(e) {
       <div>${e.stale ? `<span class="updating"><span class="spinner" aria-hidden="true"></span>Updating</span> ` : ""}<span class="chip ${e.status}">${esc(statusLabel(e))}</span></div></div>
     ${identityHtml(e)}
     ${e.error ? `<p class="msg" style="text-align:left">${esc(e.error)}</p>` : ""}
-    ${ties.length ? `<h4 class="tie-group">Not in the article</h4>` : ""}
-    ${related.map(t => tieHtml(t, "")).join("")}
-    ${other.length ? `<details><summary>${related.length ? "Show " + other.length + " more" : "Show " + plural(other.length, "connection")}: companies the story doesn't name</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
+    ${ties.length ? `<h4 class="tie-group">Not in the article</h4>
+      <p class="hint tie-note">${rest.length ? `The ${top.length} strongest of ${ties.length}. ` : ""}Each score (0–100) is how far to trust that connection.</p>` : ""}
+    ${top.map(t => tieHtml(t, t.related_to_story ? "" : "other")).join("")}
+    ${rest.length ? `<details><summary>Show the other ${rest.length}${weak ? ` (${weak} weak)` : ""}</summary>${rest.map(t => tieHtml(t, t.related_to_story ? "" : "other")).join("")}</details>` : ""}
     ${(e.disclosed || []).length ? `<details><summary>${plural(e.disclosed.length, "connection")} the article already mentioned</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
     ${e.badges_pending ? `<p class="hint"><span class="spinner" aria-hidden="true"></span> Checking CMS Open Payments. Scores may change.</p>` : ""}
     ${e.coverage ? coverageHtml(e) : e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
     ${actions.length ? `<div class="card-actions">${actions.join("")}</div>` : ""}
   </article>`;
 }
+document.addEventListener("click", ev => {
+  const btn = ev.target.closest(".q-more"); if (!btn) return;
+  const q = btn.previousElementSibling, open = q.classList.toggle("clamp") === false;
+  btn.textContent = open ? "Show less" : "Show full quote"; btn.setAttribute("aria-expanded", String(open));
+});
 function renderResults() {
   const list = Object.values(state.results);
   $("results").innerHTML = list.length ? list.map(cardHtml).join("") : `<p class="empty">No results yet.</p>`;
@@ -1292,11 +1320,18 @@ function updateCard(name) {
   const run = runOf.get(name), next = run && run.order[run.idx];
   if (next && next !== name && state.results[next]?.status === "checking") updateCard(next);
 }
+function friendlyCall(c) {  // plain wording for the lookups that read like codes; the raw label stays in the tooltip
+  let m;
+  if (c.api === "openpayments" && (m = c.label.match(/open payments (\d{4}): NPI [\d,]+ <- (.+)/))) return `Payments from ${m[2]} (${m[1]})`;
+  if (c.api === "nppes" && (m = c.label.match(/npi registry: (.+)/))) return `Looking up ${m[1]} in the NPI registry`;
+  if (c.api === "openalex") return "Checking the researcher's papers (OpenAlex)";
+  return c.label;
+}
 function renderCalls() {
   const by = {}; state.calls.forEach(c => by[c.api] = (by[c.api] || 0) + 1);
   $("tally").textContent = Object.entries(by).map(([k, v]) => `${k} ${v}`).join(" · ");
   $("calls").innerHTML = state.calls.map(c => `<div class="call"><div class="top"><span class="api ${esc(c.api)}">${esc(c.api)}</span>
-    <span class="meta ${esc(c.source)}">${esc(c.source)} · ${c.ms} ms</span></div><span class="label">${mask(c.label)}</span>
+    <span class="meta ${esc(c.source)}">${esc(c.source)} · ${c.ms} ms</span></div><span class="label" title="${mask(c.label)}">${mask(friendlyCall(c))}</span>
     ${c.error ? `<span class="meta error">${esc(c.error)}</span>` : ""}</div>`).join("")
     || (state.active > 0 ? [1, 2, 3].map(() => `<div class="call" aria-hidden="true"><span class="skel line" style="width:40%"></span><span class="skel line"></span></div>`).join("")
                       : `<p class="hint">No calls yet.</p>`);
