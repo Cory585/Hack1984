@@ -208,7 +208,17 @@ python -m conflict_check.server --cache-dir demo-cache --replay   # on stage
 python -m eval.run_eval [--replay]
 ```
 
-Scores `eval/testset.json`: each case is an article plus, for each expert, the undisclosed ties a person confirmed by hand (`[]` means it should find nothing). Reports precision, recall and how often the tool declines. The set currently holds one fictional placeholder; it needs about 20 real health-news articles, checked with the CMAJ 2017 method (compare quoted experts against their own paper disclosures). For the slide, cite Wang, Grey and Bolland, CMAJ 2017 (PMC5392116): about a third of commenters had financial conflicts, and two-thirds of those went unreported.
+Scores `eval/testset.json`: each case is an article plus, for each expert, the undisclosed ties a person confirmed by hand (`[]` means it should find nothing). An expert can be `{"affiliation": "...", "ties": [...]}`, because identity is confirmed against the affiliation. Reports precision, recall and how often the tool declines.
+
+The set holds 15 experts across 10 real articles, plus one fictional placeholder. The labels list ties found on disclosure pages (re-checked against PMC full text or the MSK profile page), not every real tie, so precision is a floor: ties the tool finds that nobody labelled count as false positives. It has one negative case. Last live run: recall 66%, precision 23%, 9 of 18 experts declined at the ORCID step. To grow it, add articles with at least one expert whose disclosures you have read in full. For the slide, cite Wang, Grey and Bolland, CMAJ 2017 (PMC5392116): about a third of commenters had financial conflicts, and two-thirds of those went unreported.
+
+## Demo
+
+`demo-cache/` holds every API response for two real articles, so the demo runs offline: `python -m conflict_check.server --replay --cache-dir demo-cache`. The walk-through is in [DEMO.md](DEMO.md).
+
+## Cost
+
+A 5-expert check costs about 5-7 Tavily credits and $0.03 of Exa. Identity is checked first, so unconfirmed experts cost nothing. Each confirmed expert runs two Exa searches (disclosure wording, and recent papers that contain the name) and one advanced-depth Tavily search. Failed calls retry twice on 429 and 5xx errors; Open Payments lookups give up after 20 s.
 
 ## Project layout
 
@@ -230,7 +240,7 @@ eval/              test set and scoring script
 
 ## Still to do
 
-- [ ] Hour-1 test: run 3–5 real health articles with the CLI; tune the patterns in `extract.py` and `ties.py`.
-- [ ] Build the ~20-article test set and put precision and decline rate on one slide.
-- [ ] Record the demo: curated `demo-cache/`, backup video, limitations slide.
+- [ ] Grow the test set to ~20 articles with more negative cases, and put precision, recall and decline rate on one slide.
+- [x] Curated `demo-cache/` and demo script ([DEMO.md](DEMO.md)).
+- [ ] Backup video and a limitations slide.
 - [ ] Optional: an AI extractor for experts as a fallback when the rules miss someone; its output would still go through the review step.
