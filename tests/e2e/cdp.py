@@ -1,5 +1,5 @@
 """Tiny Chrome DevTools Protocol driver (stdlib only) for end-to-end checks in headless Edge."""
-import base64, json, os, socket, struct, subprocess, tempfile, time, urllib.parse, urllib.request
+import base64, json, os, shutil, socket, struct, subprocess, tempfile, time, urllib.parse, urllib.request
 
 BROWSERS = [
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
@@ -66,21 +66,33 @@ class Browser:
         if not EDGE:
             raise SystemExit("No Chrome/Edge found. Set CC_BROWSER to the browser's path.")
         self.prof = tempfile.mkdtemp(prefix="cc-e2e-")
-        self.proc = subprocess.Popen([EDGE, "--headless=new", "--disable-gpu", f"--remote-debugging-port={port}",
-                                      f"--user-data-dir={self.prof}", "--no-first-run", f"--window-size={width},{height}",
-                                      "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(60):
-            try:
-                tabs = json.load(urllib.request.urlopen(f"http://127.0.0.1:{port}/json", timeout=2))
-                page = next(t for t in tabs if t.get("type") == "page")
-                break
-            except Exception:
-                time.sleep(0.25)
-        self.ws = WS(page["webSocketDebuggerUrl"])
-        self.n = 0
-        self.call("Page.enable"); self.call("Runtime.enable")
-        self.call("Emulation.setDeviceMetricsOverride", width=width, height=height, deviceScaleFactor=1, mobile=False)
+        self.proc = None
         self.console = []
+        try:
+            self.proc = subprocess.Popen([EDGE, "--headless=new", "--disable-gpu", f"--remote-debugging-port={port}",
+                                          f"--user-data-dir={self.prof}", "--no-first-run", f"--window-size={width},{height}",
+                                          "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            page, last_error = None, None
+            for _ in range(60):
+                try:
+                    tabs = json.load(urllib.request.urlopen(f"http://127.0.0.1:{port}/json", timeout=2))
+                    page = next((t for t in tabs if t.get("type") == "page"), None)
+                    if page:
+                        break
+                except Exception as e:
+                    last_error = e
+                if self.proc.poll() is not None:
+                    raise RuntimeError(f"browser exited early (code {self.proc.returncode}): {EDGE}")
+                time.sleep(0.25)
+            if not page:
+                raise RuntimeError(f"no debuggable page on port {port} after 15 s (last error: {last_error})")
+            self.ws = WS(page["webSocketDebuggerUrl"])
+            self.n = 0
+            self.call("Page.enable"); self.call("Runtime.enable")
+            self.call("Emulation.setDeviceMetricsOverride", width=width, height=height, deviceScaleFactor=1, mobile=False)
+        except BaseException:
+            self.close()  # never leave a headless browser or its profile behind
+            raise
 
     def call(self, method, **params):
         self.n += 1
@@ -96,6 +108,10 @@ class Browser:
                 if "error" in m:
                     raise RuntimeError(m["error"])
                 return m.get("result", {})
+
+    def errors(self):
+        """Uncaught exceptions and console.error only; warnings are reported but don't fail a run."""
+        return [c for c in self.console if c.startswith(("EXCEPTION", "error"))]
 
     def js(self, expr):
         r = self.call("Runtime.evaluate", expression=expr, awaitPromise=True, returnByValue=True)
@@ -118,8 +134,20 @@ class Browser:
         open(path, "wb").write(base64.b64decode(data))
 
     def close(self):
-        try:
-            self.call("Browser.close")
-        except Exception:
-            pass
-        self.proc.kill()
+        if getattr(self, "ws", None):
+            try:
+                self.call("Browser.close")
+            except Exception:
+                pass
+        if self.proc:
+            self.proc.kill()
+            try:
+                self.proc.wait(timeout=10)
+            except Exception:
+                pass
+        # the profile is tens of MB per run; the browser may hold files briefly after exit
+        for _ in range(10):
+            shutil.rmtree(self.prof, ignore_errors=True)
+            if not os.path.exists(self.prof):
+                break
+            time.sleep(0.3)
