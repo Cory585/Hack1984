@@ -88,8 +88,34 @@ NOT_ORGS = {
     "chicago", "seattle", "pittsburgh", "rochester", "cleveland", "ca", "ma", "ny", "tx", "fl", "dc",
     "prnewswire", "newswire", "businesswire", "reuters", "wikipedia", "twitter", "linkedin", "youtube",
     "program", "initiative", "translational", "science",
+    "denmark", "israel", "japan", "switzerland", "suisse", "geneva", "germany", "france", "italy", "spain", "china",
+    "india", "australia", "netherlands", "sweden", "norway", "brazil", "korea", "singapore", "ireland", "belgium",
+    "austria", "finland", "poland", "mexico", "taiwan", "montreal", "toronto", "paris", "berlin", "tokyo",
+    "cardiology", "oncology", "neurology", "psychiatry", "surgery", "transplant", "amyloidosis", "digestive", "kidney", "diseases", "dementia", "metabolic", "ceo", "cfo", "cto", "davie",
+    "thanks", "brain", "louis", "directors", "chair", "diplomate", "neuroengineering", "jennifer",
+    "social", "sciences", "aging", "medicine", "preventive", "epidemiology", "cardiovascular", "associate",
+    "assistant", "medical", "population", "magerstadt", "clinical", "research",
 }
 CONNECTORS = {"of", "for", "the", "and", "&", "do", "da", "de"}
+# Capitalised runs that name a journal, a drug/trial code ("GLP-1") or an award, never a payer.
+JOURNAL = re.compile(r"\bjournals?\b|^(?:the\s+)?(?:annals|archives|proceedings|lancet|bmj|jama|nature|science)\b", re.I)
+CODE_NAME = re.compile(r"[A-Z]{2,6}-\d+[A-Za-z]?")
+GRANT_ID = re.compile(r"\b[A-Z]\d{2}\b.*\d{4,}|\b[A-Z]{1,3}\d{5,}\b")  # "R01 AG054434", "P30 AG066530"
+CERTIFIER = re.compile(r"^American Board\b|\bboard of directors\b|\bdiplomate\b", re.I)  # a role or a credential
+AWARD_WORDS = {"grant", "grants", "award", "awards", "fellowship", "scholarship", "funding", "prize"}
+# A new clause about the person, not about who pays: ", and her work has appeared in …"
+CLAUSE_CUT = re.compile(r",\s*(?:and\s+|but\s+|while\s+)?(?=(?:he|she|they|his|her|their)\b)", re.I)
+# Roles and committees, not payers: "Associate Editor of JAMA Cardiology", "Joint Committee", "R-and U-level".
+NON_PAYER = re.compile(r"\b(?:committees?|guidelines?|working\s+group|editors?|editorial|chair|level|study|trial)\b|-level\b"
+                       r"|\b(?:for|of|on)\s+(?:clinical|metabolic|medical|applied|american|national|general)$", re.I)
+CUT_OFF = re.compile(r"\s[A-Z][a-z]$")  # a name chopped mid-word: "Metabolic So"
+# A colleague named with credentials: "[Mandar Aras, MD, PhD]" is a person, not an organization.
+CREDENTIALS = re.compile(r"^[,\s]*(?:MD|M\.D\.|PhD|DO|MPH|MSc|MBBS|RN|FACC|DPhil)\b")
+# Units of a university or hospital. A job there ("director of the Center for X") is not an outside tie.
+UNIT_WORDS = re.compile(r"\b(?:center|centre|program|programme|institute|department|division|laborator(?:y|ies)|"
+                        r"lab|clinic|hospital|school|fellowship|training|service)\b", re.I)
+# These ties describe a job; at the expert's own employer (or a unit of it) they are not an outside tie.
+JOB_CATEGORIES = {"board", "employment"}
 PARTICLES = {"da", "de", "do", "dos", "das", "van", "von", "der", "den", "del", "della", "di", "du", "le", "la", "bin"}
 SUFFIXES = {"jr", "junior", "júnior", "filho", "neto", "sobrinho", "ii", "iii", "iv", "sr"}
 
@@ -169,6 +195,27 @@ def mentions_org(org: str, text: str) -> bool:
     return bool(toks) and all(re.search(rf"\b{re.escape(t)}\b", text, re.I) for t in toks)
 
 
+def mentions_affiliation(affiliation: str, text: str) -> bool:
+    """Does the page mention this institution, by name or by its initials ("OHSU")? Used to notice pages
+    that may be about a different person with the same name."""
+    if mentions_org(affiliation, text):
+        return True
+    words = [w for w in re.findall(r"[A-Za-z][\w'’\-]*", affiliation) if w.lower() not in CONNECTORS]
+    acronym = "".join(w[0] for w in words).upper()
+    return len(acronym) >= 3 and bool(re.search(rf"\b{acronym}\b", text))
+
+
+def is_employer(org: str, employer: str) -> bool:
+    """The expert's own institution, however it is spelled: 'UCSF', 'UC San Francisco', or the full name."""
+    if same_org(org, employer) or same_company(org, employer):
+        return True
+    words = [w for w in re.findall(r"[A-Za-z][\w'’\-]*", employer) if w.lower() not in CONNECTORS]
+    acronym = "".join(w[0] for w in words).upper()
+    lead = re.sub(r"^(?:UC|University of California)\s+", "", org, flags=re.I)
+    return (len(acronym) >= 3 and org.strip(". ") == acronym) or \
+        (lead != org and same_org(lead, re.sub(r"^University of California\s+", "", employer, flags=re.I)))
+
+
 def same_org(a: str, b: str) -> bool:
     ta, tb = {t.lower() for t in distinctive_tokens(a)}, {t.lower() for t in distinctive_tokens(b)}
     return bool(ta and tb) and (ta <= tb or tb <= ta)
@@ -243,7 +290,7 @@ def person_patterns(name: str) -> tuple[re.Pattern, re.Pattern]:
     first, last, core = name_parts(name)
     L, F = re.escape(last), re.escape(first)
     strong = re.compile(
-        rf"\b{F}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{L}\b|\b{first[0]}\.[ \t]*(?:[A-Z]\.[ \t]*){{0,3}}{L}\b"
+        rf"(?<![\w\-]){F}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{L}\b|\b{first[0]}\.[ \t]*(?:[A-Z]\.[ \t]*){{0,3}}{L}\b"
         rf"|\b{L},[ \t]+{F}\b|\b{L},?[ \t]+{first[0]}\.?(?:[A-Z]\.?){{0,3}}(?![a-z])"
     )
     initials = r"\.?\s?".join(p[0] for p in core)
@@ -271,8 +318,8 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
         toks = org.split()
         if not toks or all(t.lower() in LEAD_STOP for t in toks):
             continue
-        if any(t.lower().strip(".,") in person_toks for t in toks):
-            continue
+        if any(re.sub(r"['’]s$", "", t.lower().strip(".,")) in person_toks for t in toks):
+            continue  # the person's own name, including "Khan's"
         if re.fullmatch(r"(?:[A-Z]\.\s?){1,5}|[A-Z]", org):  # dotted initials: "J.L."
             continue
         if re.fullmatch(r"[A-Z]+[a-z][A-Z]+", org):  # mixed-case initials: "SvLS"
@@ -284,6 +331,11 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
         if "_" in org or re.match(r"(?:division|department|us)\b", org, re.I):
             continue  # wiki link slugs ("Hedge_fund"), units of a university, "All of Us" fragments
         if all(t.lower().strip(".,") in NOT_ORGS | CONNECTORS for t in toks):
+            continue
+        if CREDENTIALS.match(text[m.end():]) or NON_PAYER.search(org) or CUT_OFF.search(org):
+            continue
+        if (JOURNAL.search(org) or CODE_NAME.fullmatch(org) or GRANT_ID.search(org) or CERTIFIER.search(org)
+                or toks[-1].lower() in AWARD_WORDS):
             continue
         out.append((org, m.start()))
     return out
@@ -312,7 +364,7 @@ def person_statements(text: str, name: str) -> list[tuple[str, str, str]]:
     clause. It is always an exact slice of the page (at most 600 characters), so it verifies."""
     strong, clause_pat = person_patterns(name)
     first, last, _ = name_parts(name)
-    full_re = re.compile(rf"\b{re.escape(first)}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{re.escape(last)}\b"
+    full_re = re.compile(rf"(?<![\w\-]){re.escape(first)}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{re.escape(last)}\b"
                          rf"|\b{re.escape(last)},[ \t]+{re.escape(first)}\b")
     surname_re = re.compile(rf"\b{re.escape(last)}\b")
 
@@ -397,6 +449,8 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
         text = page.get("text") or ""
         if not strong.search(text):
             continue  # page isn't demonstrably about this person
+        # None when we don't know their employer; False means this page never mentions it.
+        aff_seen = (any(mentions_affiliation(ex, text) for ex in exclude_orgs) if exclude_orgs else None)
         paper_like = bool(DOI.search(text) and COI_HEADING.search(text))  # reliability: is this a paper?
         acr = acronyms_in(text)
         for seg, quote, how in person_statements(text, name):
@@ -406,11 +460,22 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
             if not verify_quote(quote, text):
                 continue
             seg_plain = plain(seg)
-            for org, pos in orgs_in(seg_plain, name):
+            found = []
+            start = 0
+            for piece in [*CLAUSE_CUT.split(seg_plain)]:
+                at = seg_plain.find(piece, start)
+                start = at + len(piece)
+                if TIE.search(piece):  # a clause with no tie keyword of its own says nothing about payers
+                    found += [(o, at + p, piece, at) for o, p in orgs_in(piece, name)]
+            for org, pos, piece, at in found:
                 org = acr.get(org, org)  # "NIH" -> "National Institutes of Health"
-                if any(same_org(org, ex) or same_company(org, ex) for ex in exclude_orgs):
+                if any(is_employer(org, ex) for ex in exclude_orgs):
                     continue
-                rel = keyword_for(seg_plain, pos)
+                pos -= at
+                rel = keyword_for(piece, pos)
+                if category(rel) in JOB_CATEGORIES and (
+                        UNIT_WORDS.search(org) or any(mentions_org(ex, piece) for ex in exclude_orgs)):
+                    continue  # "Director of the Center for X": a unit of a university or hospital, not a payer
                 # Merge spellings of one company ("AstraZeneca" / "Astra Zeneca", "Lilly" / "Eli Lilly").
                 tie = next((t for t in ties if same_company(t["org"], org)), None)
                 if tie is None:
@@ -430,7 +495,8 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
                 if ev is None:
                     tie["evidence"].append({"url": page.get("url"), "title": page.get("title"), "api": page.get("api"),
                                             "quote": quote, "verified": True, "matched_by": how,
-                                            "published": page.get("published"), "paper_signals": paper_like})
+                                            "published": page.get("published"), "paper_signals": paper_like,
+                                            "affiliation_seen": aff_seen})
                 elif ATTRIBUTION.index(how) < ATTRIBUTION.index(ev["matched_by"]):
                     ev.update(quote=quote, matched_by=how)  # same page, stronger attribution: keep that one
     return ties

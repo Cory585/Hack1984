@@ -251,3 +251,89 @@ class NotOrgsTests(unittest.TestCase):
         from conflict_check.ties import plain
         s = plain('advisor to [a firm](https://en.wikipedia.org/wiki/Hedge_fund "Hedge fund") and Acme Bio')
         self.assertEqual(self.orgs(s), ["Acme Bio"])
+
+
+class TestNoise(unittest.TestCase):
+    """Ties that were read out of text that doesn't say who pays the person."""
+
+    def test_only_the_funder_is_a_tie_not_journals_topics_or_the_award_name(self):
+        t = ties("Maren Okafor is a professor. Her GLP-1 research is supported by a Policy Research Grant from "
+                 "the Orchard Health Foundation, and her work has appeared in the Journal of Health Economics, "
+                 "Health Services Research, and the Journal of General Internal Medicine.")
+        self.assertEqual(list(t), ["Orchard Health Foundation"])
+
+    def test_a_different_person_with_a_hyphenated_first_name_is_not_them(self):
+        page = "Sih-Maren Okafor is a professor at Harbor Institute. Her work is funded by the Veltrix Fund."
+        self.assertEqual(ties(page), {})
+        self.assertIn("Veltrix Fund", ties(page.replace("Sih-", "")))  # the same text about the real name counts
+
+    def test_director_of_a_unit_at_their_own_employer_is_not_a_tie(self):
+        page = ("Maren Okafor is the Director of the Center for Population Studies at Lakeside University. "
+                "Dr. Okafor's research is supported by grants from the Veltrix Foundation.")
+        self.assertEqual(list(ties(page)), ["Veltrix Foundation"])
+
+    def test_director_at_an_outside_company_is_still_a_tie(self):
+        page = "Maren Okafor is a director of Halden Biotech."
+        self.assertIn("Halden Biotech", ties(page))
+
+
+class TestSameNameGuard(unittest.TestCase):
+    def test_affiliation_seen_flags_pages_that_never_mention_the_institution(self):
+        from conflict_check.ties import mentions_affiliation
+        about = "Maren Okafor consults for Veltrix Pharmaceuticals."
+        t = ties(about)["Veltrix Pharmaceuticals"]
+        self.assertFalse(t["evidence"][0]["affiliation_seen"])
+        t = ties(about + " She is at Lakeside University.")["Veltrix Pharmaceuticals"]
+        self.assertTrue(t["evidence"][0]["affiliation_seen"])
+        self.assertIsNone(ties(about, exclude=[])["Veltrix Pharmaceuticals"]["evidence"][0]["affiliation_seen"])
+        self.assertTrue(mentions_affiliation("Oregon Health and Science University", "Dr. X, OHSU, reports"))
+        self.assertFalse(mentions_affiliation("Oregon Health and Science University", "Oregon State"))
+
+
+class TestMoreNoise(unittest.TestCase):
+    def test_places_grant_ids_roles_and_filler_words_are_not_payers(self):
+        t = ties("Maren Okafor reports consulting fees from Veltrix Pharmaceuticals, Denmark, Japan and Geneva; "
+                 "grants from R01 AG054434, P30 AG066530 and the Halden Foundation. Thanks to Jennifer. "
+                 "Maren Okafor is Vice Chair of the American Board of Obesity Medicine and a Diplomate.")
+        self.assertEqual(set(t), {"Veltrix Pharmaceuticals", "Halden Foundation"})
+
+
+class TestExaHighlights(unittest.TestCase):
+    def test_disclosure_cut_off_by_the_length_cap_is_recovered_from_highlights(self):
+        from conflict_check.pipeline import with_highlights
+        hit = {"text": "Maren Okafor. Long paper body…", "highlights": [
+            "Competing interests: M.O. reports consulting fees from Veltrix Pharmaceuticals.", "Long paper body…"]}
+        text = with_highlights(hit)
+        self.assertIn("Veltrix", text)
+        self.assertEqual(text.count("Long paper body…"), 1)  # a highlight already in the text isn't repeated
+        t = ties(text)
+        self.assertIn("Veltrix Pharmaceuticals", t)
+        self.assertTrue(t["Veltrix Pharmaceuticals"]["evidence"][0]["verified"])
+        self.assertEqual(with_highlights({"text": "x"}), "x")
+
+
+class TestRoleNoise(unittest.TestCase):
+    def test_role_text_is_not_a_tie(self):
+        t = ties("Maren Okafor serves as Director of the Center for Population Science and Associate Editor of "
+                 "JAMA Cardiology; she collaborates with her program director, now colleague Liviu Klein, MD, PhD, "
+                 "and is supported by multiple R-and U-level grants from the Halden Foundation and a "
+                 "Joint Committee on Practice Guidelines.")
+        self.assertEqual(set(t), {"Halden Foundation"})
+
+    def test_a_director_role_at_a_company_is_still_a_tie(self):
+        self.assertIn("Halden Biotech", ties("Maren Okafor is a director of Halden Biotech."))
+
+
+class TestEmployerSpellings(unittest.TestCase):
+    def test_own_institution_under_other_spellings_is_not_a_tie(self):
+        for spelling in ("UCSF", "UC San Francisco", "University of California San Francisco"):
+            page = f"Maren Okafor is supported by grants from {spelling} and from Halden Biotech."
+            self.assertEqual(set(ties(page, exclude=["University of California San Francisco"])), {"Halden Biotech"},
+                             spelling)
+
+
+class TestStudyAndFragmentNoise(unittest.TestCase):
+    def test_study_names_and_cut_off_names_are_not_payers(self):
+        t = ties("Maren Okafor reports grants from the AHEAD Study, the Association for Clinical, "
+                 "Kidney Diseases and Veltrix Pharmaceuticals.")
+        self.assertEqual(set(t), {"Veltrix Pharmaceuticals"})

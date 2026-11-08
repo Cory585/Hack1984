@@ -1,0 +1,1 @@
+{"request": {"method": "GET", "url": "https://pub.orcid.org/v3.0/expanded-search/?q=given-names%3A%22Lei%22+AND+family-name%3A%22Liu%22+AND+affiliation-org-name%3A%22Brigham+and+Women%E2%80%99s%22&rows=10", "body": null}, "response": {"expanded-result": null, "num-found": 0}}
