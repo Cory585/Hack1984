@@ -146,7 +146,7 @@ function renderReview() {
     <td><input type="checkbox" data-i="${i}" data-k="selected" ${e.selected ? "checked" : ""} aria-label="Check this expert"></td>
     <td><input type="text" data-i="${i}" data-k="name" value="${esc(e.name)}"></td>
     <td><input type="text" data-i="${i}" data-k="affiliation" value="${esc(e.affiliation || "")}" placeholder="e.g. Lakeside University"></td>
-    <td class="ctx">${e.added ? "Added by you" : mask(e.context)}</td></tr>`).join("") ||
+    <td class="ctx">${e.kind === "other" ? `<b>Not an independent expert${e.role ? " (" + esc(e.role) + ")" : ""}.</b> ` : ""}${e.added ? "Added by you" : mask(e.context)}</td></tr>`).join("") ||
     `<tr><td colspan="4" class="hint">No quoted experts found. Add one below.</td></tr>`;
   updateCount();
 }

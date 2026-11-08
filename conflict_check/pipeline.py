@@ -36,7 +36,8 @@ def find_experts(s: Session, url: str | None = None, text: str | None = None) ->
     return {
         "article": {"url": article["url"], "source": article["source"], "chars": len(article["text"])},
         "text": article["text"],
-        "experts": [dict(e.to_dict(), selected=i < MAX_EXPERTS) for i, e in enumerate(experts)],
+        "experts": [dict(e.to_dict(), selected=e.kind == "expert" and i < MAX_EXPERTS)
+                    for i, e in enumerate(experts)],
         "max_experts": MAX_EXPERTS,
         "calls": s.calls,
     }
@@ -114,7 +115,7 @@ def check_article(s: Session, url: str | None = None, text: str | None = None,
         todo = experts_from_request(experts)
         skipped = [e.name for e, _ in todo[max_experts:]]
     else:
-        found = extract_experts(article["text"])
+        found = [e for e in extract_experts(article["text"]) if e.kind == "expert"]
         todo = [(e, None) for e in found]
         skipped = [e.name for e in found[max_experts:]]
     todo = todo[:max_experts]
