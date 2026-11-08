@@ -70,6 +70,16 @@ def experts_from_request(items: list[dict]) -> list[tuple[Expert, str | None]]:
     return out
 
 
+def with_highlights(hit: dict) -> str:
+    """Page text plus any Exa highlight that the (length-capped) text doesn't already contain, such as a
+    disclosure section at the end of a long paper. Highlights are sentences from the page, so quotes
+    taken from them still verify against this text."""
+    text = hit.get("text") or ""
+    seen = " ".join(text.split())
+    extra = [h.strip() for h in hit.get("highlights") or [] if h and " ".join(h.split()) not in seen]
+    return text + ("\n\n" + "\n\n".join(extra) if extra else "")
+
+
 def gather_pages(s: Session, name: str, affiliation: str | None) -> list[dict]:
     """Exa research-paper search (papers carry conflict statements) + Tavily web search/extract."""
     aff = affiliation or ""
@@ -79,7 +89,7 @@ def gather_pages(s: Session, name: str, affiliation: str | None) -> list[dict]:
         tav_f = pool.submit(tavily_search, s, f'"{name}" {aff} consultant OR "advisory board" OR "conflict of interest"', 5, True)
         exa_hits, hits = exa_f.result(), tav_f.result()
     for r in exa_hits:
-        pages.append({"url": r.get("url"), "title": r.get("title"), "text": r.get("text") or "", "api": "exa",
+        pages.append({"url": r.get("url"), "title": r.get("title"), "text": with_highlights(r), "api": "exa",
                       "published": r.get("publishedDate")})
     seen = {p["url"] for p in pages}
     hits = [h for h in hits if h.get("url") and h["url"] not in seen][:5]

@@ -35,13 +35,20 @@ def tavily_extract(s: Session, urls: list[str]) -> list[dict]:
     return data.get("results") or []
 
 
+HIGHLIGHT_QUERY = ("competing interests, conflicts of interest, disclosures: consulting fees, advisory board, "
+                   "grants, honoraria, stock, employee")
+
+
 def exa_search(s: Session, query: str, num_results: int = 5, category: str | None = None) -> list[dict]:
     """Exa search with page text included. category e.g. 'research paper'."""
     body = {
         "query": query,
         "type": "auto",
         "numResults": num_results,
-        "contents": {"text": {"maxCharacters": 20000}},
+        # Text is cut at 20,000 characters, which drops the disclosure section at the end of long papers
+        # (half of cached results were cut). Highlights are Exa's best-matching sentences from the whole page.
+        "contents": {"text": {"maxCharacters": 20000},
+                     "highlights": {"query": HIGHLIGHT_QUERY, "numSentences": 4, "highlightsPerUrl": 3}},
     }
     if category:
         body["category"] = category
