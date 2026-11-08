@@ -42,7 +42,7 @@ Every state has a way forward: errors offer **Try again** plus a context-specifi
 ```mermaid
 flowchart TD
     A([Open the site]) --> B{Start}
-    B -->|"✦ Try the live demo"| D[Demo article loaded<br/>fictional data, no network]
+    B -->|"Try the demo, or<br/>Run this example live (preview)"| D[Demo article loaded<br/>fictional data, no network]
     B -->|Link or Paste text| C[Article input]
     C -->|"Find experts (Ctrl+Enter)"| E[[Skeleton rows while loading]]
     D --> E
@@ -71,6 +71,33 @@ flowchart TD
 ```
 
 The **How it works** cards expand to full width with a view transition (click, **Close** or **Esc**). **Limits** is a separate section, and the nav underlines the section in view.
+
+## Design system
+
+The UI is one page (`web/index.html`) built from a small set of tokens defined on `:root`. Components only use these, so spacing, type and shape stay consistent.
+
+| Token group | Values |
+|---|---|
+| Type (`--fs-*`) | 2xs 11 · xs 12 · sm 14 · base 16 · md 18 · lg 22 · xl clamp(26–34) · display clamp(36–64) px |
+| Spacing (`--sp-1…8`) | 4 · 8 · 12 · 16 · 24 · 32 · 48 · 72 px |
+| Radius (`--r-*`) | xs 6 · sm 12 · md 18 · lg 24 · pill; squircle (`corner-shape`) where supported |
+| Motion | `--dur-fast` .15s · `--dur` .2s · `--ease`; everything stops under reduced motion |
+| Color | semantic tokens (`--ink`, `--surface`, `--accent`, `--flag`, `--ok`, `--warn`, …) redefined for dark mode |
+
+**Rules the page follows:**
+- **Icons:** one SVG set (`#i-*` symbols): 24px grid, 2px round strokes, `currentColor`. No text glyphs as icons.
+- **Fonts:** Unbounded for display, the system UI font for text. Monospace (Space Mono) is only for code-like text: API query labels, keys, code samples.
+- **No filler:** no decorative badges or labels that repeat what the layout already says. Status chips, tie categories and reliability pills carry information.
+- **Optical alignment:**
+  - the display headline is pulled back by its side bearing to line up with the text
+  - opening quote marks hang
+  - circles are drawn about 6% larger than squares
+  - icons and numerals are nudged to their visual centre
+  - buttons trim to cap height where `text-box` is supported
+- **Headlines** use `text-wrap: balance` and body text uses `pretty`. The hero headline is two unbreakable phrases, so it's one line or "Who pays / the experts?", never split mid-phrase.
+- **Loading:** any button whose action takes time shows a spinner, a shine sweep and `aria-busy` until it settles. Content that's loading shows skeletons.
+
+The hero puts the main feature first (the check itself, enlarged) beside a live-styled **product preview**, built from the same components as real results, with fictional data. Its **Run this example live** button runs the demo.
 
 ## Command line
 
@@ -155,7 +182,7 @@ In the UI, each connection shows a pill (for example "Strong · 92"), and **Why 
 
 ## Demo mode
 
-**Built-in demo:** click **✦ Try the live demo**. It runs the real pipeline on a fictional article, people and companies, with realistic delays and no keys or network. It covers every result state: a confirmed expert with ties and an Open Payments badge, an expert you confirm by picking a candidate, and a spokesperson who is set aside.
+**Built-in demo:** click **Try the demo** in the check card, or **Run this example live** under the product preview. It runs the real pipeline on a fictional article, people and companies, with realistic delays and no keys or network. It covers every result state: a confirmed expert with ties and an Open Payments badge, an expert you confirm by picking a candidate, and a spokesperson who is set aside.
 
 **Replaying real runs:** every live response is cached, so a run you've done once can be replayed with no network:
 
