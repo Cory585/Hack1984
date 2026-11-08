@@ -251,3 +251,27 @@ class NotOrgsTests(unittest.TestCase):
         from conflict_check.ties import plain
         s = plain('advisor to [a firm](https://en.wikipedia.org/wiki/Hedge_fund "Hedge fund") and Acme Bio')
         self.assertEqual(self.orgs(s), ["Acme Bio"])
+
+
+class TestNoise(unittest.TestCase):
+    """Ties that were read out of text that doesn't say who pays the person."""
+
+    def test_only_the_funder_is_a_tie_not_journals_topics_or_the_award_name(self):
+        t = ties("Maren Okafor is a professor. Her GLP-1 research is supported by a Policy Research Grant from "
+                 "the Orchard Health Foundation, and her work has appeared in the Journal of Health Economics, "
+                 "Health Services Research, and the Journal of General Internal Medicine.")
+        self.assertEqual(list(t), ["Orchard Health Foundation"])
+
+    def test_a_different_person_with_a_hyphenated_first_name_is_not_them(self):
+        page = "Sih-Maren Okafor is a professor at Harbor Institute. Her work is funded by the Veltrix Fund."
+        self.assertEqual(ties(page), {})
+        self.assertIn("Veltrix Fund", ties(page.replace("Sih-", "")))  # the same text about the real name counts
+
+    def test_director_of_a_unit_at_their_own_employer_is_not_a_tie(self):
+        page = ("Maren Okafor is the Director of the Center for Population Studies at Lakeside University. "
+                "Dr. Okafor's research is supported by grants from the Veltrix Foundation.")
+        self.assertEqual(list(ties(page)), ["Veltrix Foundation"])
+
+    def test_director_at_an_outside_company_is_still_a_tie(self):
+        page = "Maren Okafor is a director of Halden Biotech."
+        self.assertIn("Halden Biotech", ties(page))

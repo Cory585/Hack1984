@@ -92,6 +92,14 @@ NOT_ORGS = {
     "assistant", "medical", "population", "magerstadt", "clinical", "research",
 }
 CONNECTORS = {"of", "for", "the", "and", "&", "do", "da", "de"}
+# Capitalised runs that name a journal, a drug/trial code ("GLP-1") or an award, never a payer.
+JOURNAL = re.compile(r"\bjournals?\b|^(?:the\s+)?(?:annals|archives|proceedings|lancet|bmj|jama|nature|science)\b", re.I)
+CODE_NAME = re.compile(r"[A-Z]{2,6}-\d+[A-Za-z]?")
+AWARD_WORDS = {"grant", "grants", "award", "awards", "fellowship", "scholarship", "funding", "prize"}
+# A new clause about the person, not about who pays: ", and her work has appeared in …"
+CLAUSE_CUT = re.compile(r",\s*(?:and\s+|but\s+|while\s+)?(?=(?:he|she|they|his|her|their)\b)", re.I)
+# These ties describe a job; at the expert's own employer (or a unit of it) they are not an outside tie.
+JOB_CATEGORIES = {"board", "employment"}
 PARTICLES = {"da", "de", "do", "dos", "das", "van", "von", "der", "den", "del", "della", "di", "du", "le", "la", "bin"}
 SUFFIXES = {"jr", "junior", "júnior", "filho", "neto", "sobrinho", "ii", "iii", "iv", "sr"}
 
@@ -245,7 +253,7 @@ def person_patterns(name: str) -> tuple[re.Pattern, re.Pattern]:
     first, last, core = name_parts(name)
     L, F = re.escape(last), re.escape(first)
     strong = re.compile(
-        rf"\b{F}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{L}\b|\b{first[0]}\.[ \t]*(?:[A-Z]\.[ \t]*){{0,3}}{L}\b"
+        rf"(?<![\w\-]){F}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{L}\b|\b{first[0]}\.[ \t]*(?:[A-Z]\.[ \t]*){{0,3}}{L}\b"
         rf"|\b{L},[ \t]+{F}\b|\b{L},?[ \t]+{first[0]}\.?(?:[A-Z]\.?){{0,3}}(?![a-z])"
     )
     initials = r"\.?\s?".join(p[0] for p in core)
@@ -287,6 +295,8 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
             continue  # wiki link slugs ("Hedge_fund"), units of a university, "All of Us" fragments
         if all(t.lower().strip(".,") in NOT_ORGS | CONNECTORS for t in toks):
             continue
+        if JOURNAL.search(org) or CODE_NAME.fullmatch(org) or toks[-1].lower() in AWARD_WORDS:
+            continue
         out.append((org, m.start()))
     return out
 
@@ -314,7 +324,7 @@ def person_statements(text: str, name: str) -> list[tuple[str, str, str]]:
     clause. It is always an exact slice of the page (at most 600 characters), so it verifies."""
     strong, clause_pat = person_patterns(name)
     first, last, _ = name_parts(name)
-    full_re = re.compile(rf"\b{re.escape(first)}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{re.escape(last)}\b"
+    full_re = re.compile(rf"(?<![\w\-]){re.escape(first)}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{re.escape(last)}\b"
                          rf"|\b{re.escape(last)},[ \t]+{re.escape(first)}\b")
     surname_re = re.compile(rf"\b{re.escape(last)}\b")
 
@@ -408,11 +418,21 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
             if not verify_quote(quote, text):
                 continue
             seg_plain = plain(seg)
-            for org, pos in orgs_in(seg_plain, name):
+            found = []
+            start = 0
+            for piece in [*CLAUSE_CUT.split(seg_plain)]:
+                at = seg_plain.find(piece, start)
+                start = at + len(piece)
+                if TIE.search(piece):  # a clause with no tie keyword of its own says nothing about payers
+                    found += [(o, at + p, piece, at) for o, p in orgs_in(piece, name)]
+            for org, pos, piece, at in found:
                 org = acr.get(org, org)  # "NIH" -> "National Institutes of Health"
                 if any(same_org(org, ex) or same_company(org, ex) for ex in exclude_orgs):
                     continue
-                rel = keyword_for(seg_plain, pos)
+                pos -= at
+                rel = keyword_for(piece, pos)
+                if category(rel) in JOB_CATEGORIES and any(mentions_org(ex, piece) for ex in exclude_orgs):
+                    continue  # "Director of the Center for X at <their own university>": a unit of the employer
                 # Merge spellings of one company ("AstraZeneca" / "Astra Zeneca", "Lilly" / "Eli Lilly").
                 tie = next((t for t in ties if same_company(t["org"], org)), None)
                 if tie is None:
