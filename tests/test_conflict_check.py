@@ -70,8 +70,12 @@ def op_row(npi, payer="VELTRIX PHARMACEUTICALS INC.", amount="1500.00", nature="
 
 def fake_fetcher(orcid_hits, op_npis=("1234567890",)):
     def fetch(method, url, headers, body):
+        if "npiregistry.cms.hhs.gov" in url:
+            if "last_name=Okafor" in url:
+                return {"result_count": len(op_npis), "results": [{"number": n, "taxonomies": []} for n in op_npis]}
+            return {"result_count": 0, "results": []}
         if "openpaymentsdata.cms.gov" in url:
-            payer = body["conditions"][2]["value"]
+            payer = body["conditions"][1]["value"]
             return {"results": [op_row(n) for n in op_npis] if "VELTRIX" in payer else []}
         if "orcid.org" in url and url.endswith("/personal-details"):
             return {"name": {"given-names": {"value": "Maren"}, "family-name": {"value": "Okafor"}}}
@@ -128,6 +132,25 @@ class TestPipeline(unittest.TestCase):
         okafor = next(e for e in result["experts"] if e["name"] == "Maren Okafor")
         self.assertEqual(okafor["status"], "identity_not_confirmed")
         self.assertEqual(okafor["ties"], [])
+
+    def test_open_payments_skips_names_the_npi_registry_does_not_know(self):
+        from conflict_check.openpayments import badge_for_tie
+        calls = []
+
+        def fetch(method, url, headers, body):
+            calls.append(url)
+            return {"result_count": 0, "results": []}
+        self.assertIsNone(badge_for_tie(Session(cache_dir=None, fetcher=fetch), "Janki Choudhary", "Pfizer"))
+        self.assertEqual(len(calls), 1)  # registry only; Open Payments is never queried
+
+    def test_open_payments_not_checked_when_name_is_too_common(self):
+        from conflict_check.openpayments import MAX_NPIS, badge_for_tie
+
+        def fetch(method, url, headers, body):
+            n = MAX_NPIS + 1
+            return {"result_count": n, "results": [{"number": 1000 + i, "taxonomies": []} for i in range(n)]}
+        badge = badge_for_tie(Session(cache_dir=None, fetcher=fetch), "John Smith", "Pfizer")
+        self.assertEqual(badge["status"], "ambiguous")
 
     def test_open_payments_withheld_when_several_physicians(self):
         result = check_article(self.session(fetcher=fake_fetcher(1, op_npis=("111", "222"))), text=ARTICLE)

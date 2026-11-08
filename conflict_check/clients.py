@@ -81,17 +81,35 @@ OP_FIELDS = [
 ]
 
 
-def open_payments_query(s: Session, dataset_id: str, year: str, first: str, last: str,
+NPPES = "https://npiregistry.cms.hhs.gov/api/"
+
+
+def nppes_npis(s: Session, first: str, last: str, limit: int = 11) -> dict:
+    """US clinicians with this exact name from the NPI registry (about 0.2 s). `count` is capped at `limit`,
+    so ask for one more than you will accept.
+    Open Payments is only fast when queried by NPI: name filters scan millions of rows (20-80 s)."""
+    url = f"{NPPES}?" + urllib.parse.urlencode({
+        "version": "2.1", "first_name": first, "last_name": last,
+        "enumeration_type": "NPI-1", "limit": limit})
+    data = s.request("nppes", f"npi registry: {first} {last}", "GET", url, {})
+    found = []
+    for r in data.get("results") or []:
+        tax = next((t for t in r.get("taxonomies") or [] if t.get("primary")), None) or {}
+        found.append({"npi": str(r.get("number")), "state": tax.get("state"), "specialty": tax.get("desc")})
+    return {"count": data.get("result_count") or 0, "npis": found}
+
+
+def open_payments_query(s: Session, dataset_id: str, year: str, npis: list[str],
                         manufacturer_contains: str, limit: int = 500) -> list[dict]:
-    """CMS Open Payments general payments for one physician name from one manufacturer."""
+    """CMS Open Payments general payments to these NPIs from one manufacturer (about 1-2 s)."""
     cond = [
-        {"property": "covered_recipient_last_name", "value": last.upper(), "operator": "="},
-        {"property": "covered_recipient_first_name", "value": first.upper(), "operator": "="},
+        {"property": "covered_recipient_npi", "value": npis if len(npis) > 1 else npis[0],
+         "operator": "in" if len(npis) > 1 else "="},
         {"property": "applicable_manufacturer_or_applicable_gpo_making_payment_name",
          "value": manufacturer_contains.upper(), "operator": "contains"},
     ]
     data = s.request(
-        "openpayments", f"open payments {year}: {first} {last} <- {manufacturer_contains}", "POST",
+        "openpayments", f"open payments {year}: NPI {','.join(npis)} <- {manufacturer_contains}", "POST",
         f"{OPEN_PAYMENTS}/{dataset_id}/0", {},
         {"conditions": cond, "limit": limit, "results": True, "count": False, "properties": OP_FIELDS},
     )

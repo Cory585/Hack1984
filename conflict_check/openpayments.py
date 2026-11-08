@@ -11,7 +11,7 @@ import os
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
-from .clients import open_payments_query
+from .clients import nppes_npis, open_payments_query
 from .session import Session
 from .ties import distinctive_tokens
 
@@ -20,6 +20,9 @@ DEFAULT_DATASETS = {
     "2025": "fb0b1734-1410-429d-92f6-3f4b35218e5e",
     "2024": "e6b17c6a-2534-4207-a4a1-6746a14911ff",
 }
+
+
+MAX_NPIS = 10  # more registry matches than this and a name match means little
 
 
 def datasets() -> dict[str, str]:
@@ -74,9 +77,16 @@ def badge_for_tie(s: Session, name: str, org: str) -> dict | None:
     parts = name.split()
     first, last = parts[0], parts[-1]
     needle = max(toks, key=len)
+    people = nppes_npis(s, first, last)  # name -> NPI first: Open Payments is only fast by NPI
+    if not people["npis"]:
+        return None  # not a US clinician in the registry, so no payments to find
+    if people["count"] > MAX_NPIS:
+        return {"status": "ambiguous", "physicians": None,
+                "note": f"{first} {last} is shared by more than {MAX_NPIS} US clinicians; payments not checked."}
+    npis = [p["npi"] for p in people["npis"]]
     rows: list[dict] = []
     with ThreadPoolExecutor(max_workers=len(sets)) as pool:  # one query per year, side by side
-        futures = {year: pool.submit(open_payments_query, s, ds, year, first, last, needle)
+        futures = {year: pool.submit(open_payments_query, s, ds, year, npis, needle)
                    for year, ds in sets.items()}
         for year, f in futures.items():
             for r in f.result():

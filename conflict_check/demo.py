@@ -97,7 +97,7 @@ def _tavily_extract(body: dict) -> dict:
 def _open_payments(body: dict) -> dict:
     cond = {c["property"]: c["value"] for c in body.get("conditions", [])}
     payer = cond.get("applicable_manufacturer_or_applicable_gpo_making_payment_name", "")
-    if cond.get("covered_recipient_last_name") != "OKAFOR" or "VELTRIX" not in payer:
+    if cond.get("covered_recipient_npi") != "1999999999" or "VELTRIX" not in payer:
         return {"results": []}
     rows = []
     for amount, nature, date in (("12500.00", "Consulting Fee", "03/14/2025"), ("8750.00", "Consulting Fee", "09/02/2025"),
@@ -110,6 +110,13 @@ def _open_payments(body: dict) -> dict:
                      "total_amount_of_payment_usdollars": amount, "nature_of_payment_or_transfer_of_value": nature,
                      "date_of_payment": date})
     return {"results": rows}
+
+
+def _nppes(url: str) -> dict:
+    if "last_name=Okafor" in url:
+        return {"result_count": 1, "results": [{"number": 1999999999,
+                "taxonomies": [{"primary": True, "state": "MN", "desc": "Cardiovascular Disease"}]}]}
+    return {"result_count": 0, "results": []}
 
 
 def make_fetcher(delay: tuple[float, float] = (0.25, 0.9)):
@@ -127,6 +134,8 @@ def make_fetcher(delay: tuple[float, float] = (0.25, 0.9)):
             if any(u not in PAGES for u in (body or {}).get("urls", [])):
                 return {"results": [{"url": u, "raw_content": ARTICLE} for u in body["urls"]]}  # the article itself
             data = _tavily_extract(body or {})
+        elif "npiregistry.cms.hhs.gov" in url:
+            data = _nppes(url)
         elif "openpaymentsdata.cms.gov" in url:
             data = _open_payments(body or {})
         else:
