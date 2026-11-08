@@ -14,7 +14,7 @@ import json
 import os
 
 from conflict_check.pipeline import check_article
-from conflict_check.server import CACHE, load_env
+from conflict_check.server import cache_dir, load_env
 from conflict_check.session import Session
 from conflict_check.ties import same_org
 
@@ -34,7 +34,7 @@ def main() -> None:
         if case.get("text_file"):
             with open(case["text_file"], encoding="utf-8") as f:
                 text = f.read()
-        s = Session(cache_dir=CACHE, replay=args.replay)
+        s = Session(cache_dir=cache_dir(), replay=args.replay)
         result = check_article(s, url=case.get("url"), text=text)
         got = {e["name"]: e for e in result["experts"]}
         for name, expected in case["experts"].items():

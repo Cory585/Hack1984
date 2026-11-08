@@ -61,8 +61,20 @@ class TestTies(unittest.TestCase):
         self.assertIn("Dr. Okafor is an employee of Lakeside University.", split_clauses(PAPER))
 
 
-def fake_fetcher(orcid_hits):
+def op_row(npi, payer="VELTRIX PHARMACEUTICALS INC.", amount="1500.00", nature="Consulting Fee"):
+    return {"covered_recipient_npi": npi, "recipient_city": "LAKESIDE", "recipient_state": "MN",
+            "covered_recipient_specialty_1": "Allopathic & Osteopathic Physicians|Cardiovascular Disease",
+            "applicable_manufacturer_or_applicable_gpo_making_payment_name": payer,
+            "total_amount_of_payment_usdollars": amount, "nature_of_payment_or_transfer_of_value": nature}
+
+
+def fake_fetcher(orcid_hits, op_npis=("1234567890",)):
     def fetch(method, url, headers, body):
+        if "openpaymentsdata.cms.gov" in url:
+            payer = body["conditions"][2]["value"]
+            return {"results": [op_row(n) for n in op_npis] if "VELTRIX" in payer else []}
+        if "orcid.org" in url and url.endswith("/personal-details"):
+            return {"name": {"given-names": {"value": "Maren"}, "family-name": {"value": "Okafor"}}}
         if "orcid.org" in url:
             if "Okafor" in url:
                 return {"num-found": orcid_hits, "expanded-result": [
@@ -94,7 +106,13 @@ class TestPipeline(unittest.TestCase):
         by = {e["name"]: e for e in result["experts"]}
         okafor = by["Maren Okafor"]
         self.assertEqual(okafor["status"], "connections_found")
-        self.assertEqual(okafor["ties"][0]["org"], "Veltrix Pharmaceuticals")  # story-related first
+        veltrix = okafor["ties"][0]
+        self.assertEqual(veltrix["org"], "Veltrix Pharmaceuticals")  # story-related first
+        badge = veltrix["open_payments"]
+        self.assertEqual(badge["status"], "name_match")
+        self.assertEqual(badge["payments"], 2)            # one row per dataset year
+        self.assertEqual(badge["total_usd"], 3000.0)
+        self.assertIsNone(okafor["ties"][1]["open_payments"])  # Halden: no payments, no badge
         self.assertEqual(by["Tobias Wren"]["status"], "identity_not_confirmed")
         self.assertTrue(all(c["source"] == "live" for c in result["calls"]))
 
@@ -107,6 +125,32 @@ class TestPipeline(unittest.TestCase):
         okafor = next(e for e in result["experts"] if e["name"] == "Maren Okafor")
         self.assertEqual(okafor["status"], "identity_not_confirmed")
         self.assertEqual(okafor["ties"], [])
+
+    def test_open_payments_withheld_when_several_physicians(self):
+        result = check_article(self.session(fetcher=fake_fetcher(1, op_npis=("111", "222"))), text=ARTICLE)
+        okafor = next(e for e in result["experts"] if e["name"] == "Maren Okafor")
+        self.assertEqual(okafor["ties"][0]["open_payments"]["status"], "ambiguous")
+
+    def test_user_pick_confirms_identity(self):
+        experts = [{"name": "Maren Okafor", "affiliation": "Lakeside University", "orcid": "0000-0000-0000-0001"}]
+        result = check_article(self.session(fetcher=fake_fetcher(2)), text=ARTICLE, experts=experts)
+        okafor = result["experts"][0]
+        self.assertEqual(okafor["identity"]["by"], "user")
+        self.assertEqual(okafor["status"], "connections_found")
+
+    def test_user_pick_rejects_wrong_surname(self):
+        experts = [{"name": "Tobias Wren", "orcid": "0000-0000-0000-0001"}]  # record is Maren Okafor
+        result = check_article(self.session(fetcher=fake_fetcher(1)), text=ARTICLE, experts=experts)
+        self.assertEqual(result["experts"][0]["status"], "identity_not_confirmed")
+
+    def test_reviewed_list_drops_single_names_and_streams_events(self):
+        events, calls = [], []
+        s = self.session(fetcher=fake_fetcher(1), on_call=calls.append)
+        check_article(s, text=ARTICLE, experts=[{"name": "Okafor"}, {"name": "Maren Okafor",
+                      "affiliation": "Lakeside University"}], on_event=events.append)
+        self.assertEqual([e["type"] for e in events], ["start", "expert"])
+        self.assertEqual(events[0]["experts"], ["Maren Okafor"])
+        self.assertEqual(calls, s.calls)
 
     def test_replay_miss(self):
         with self.assertRaises(ReplayMiss):
