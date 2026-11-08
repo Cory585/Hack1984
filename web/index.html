@@ -37,7 +37,7 @@
   color-scheme: dark; } }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 64px; } /* anchors land below the sticky nav */
 body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.47 var(--font); letter-spacing: -.022em;
   -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
@@ -51,10 +51,13 @@ button, input, textarea { font: inherit; letter-spacing: inherit; color: inherit
 .nav-in { max-width: 1080px; margin: 0 auto; height: 48px; padding: 0 22px; display: flex; align-items: center; gap: 24px; }
 .brand { font-weight: 600; font-size: 17px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
 .brand svg { width: 20px; height: 20px; }
-.nav-links { display: flex; gap: 22px; font-size: 12px; margin-left: auto; }
-.nav-links a { color: var(--ink-2); } .nav-links a:hover { color: var(--ink); text-decoration: none; }
-.icon-btn { width: 32px; height: 32px; border-radius: 50%; border: 0; background: transparent; display: grid;
-  place-items: center; cursor: pointer; color: var(--ink-2); }
+.nav-links { display: flex; gap: 8px; font-size: 12px; margin-left: auto; height: 100%; }
+.nav-links a { color: var(--ink-2); display: flex; align-items: center; padding: 0 10px; height: 100%; position: relative; }
+.nav-links a:hover { color: var(--ink); text-decoration: none; }
+.nav-links a.active { color: var(--ink); }
+.nav-links a.active::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; border-radius: 2px; background: var(--ink); }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; display: grid;
+  place-items: center; cursor: pointer; color: var(--ink-2); flex: none; }
 .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
 .icon-btn svg { width: 18px; height: 18px; }
 @media (max-width: 600px) { .nav-links { display: none; } .theme { margin-left: auto; } }
@@ -91,7 +94,8 @@ h2 { font: 700 32px/1.12 var(--display); letter-spacing: -.03em; margin: 0; }
 textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; }
 .toggles { display: flex; flex-wrap: wrap; gap: 10px 22px; }
-.switch { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); cursor: pointer; user-select: none; }
+.switch { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); cursor: pointer;
+  user-select: none; position: relative; min-height: 44px; } /* the hidden input stays inside its label */
 .switch input { position: absolute; opacity: 0; pointer-events: none; }
 .switch .track { width: 40px; height: 24px; border-radius: 12px; background: var(--rule); position: relative; transition: background .2s; flex: none; }
 .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%;
@@ -121,6 +125,8 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 .person .ctx { grid-column: 2 / -1; font-size: 13px; color: var(--muted); line-height: 1.4; }
 .person .ctx b { color: var(--warn); font-weight: 600; }
 .person .field { padding: 9px 12px; font-size: 15px; border-radius: 10px; }
+.check-hit { width: 44px; height: 44px; margin: -11px; display: grid; place-items: center; cursor: pointer; border-radius: 50%; }
+.check-hit:hover .check { border-color: var(--accent); }
 .check { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--rule); appearance: none; -webkit-appearance: none;
   margin: 0; cursor: pointer; display: grid; place-items: center; background: var(--surface); }
 .check:checked { background: var(--accent); border-color: var(--accent); }
@@ -160,7 +166,8 @@ blockquote .src { display: block; font-size: 13px; margin-top: 4px; color: var(-
 .op { background: var(--badge); color: var(--badge-ink); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
 .op small { display: block; opacity: .85; font-size: 12px; margin-top: 2px; }
 details { border-top: 1px solid var(--rule-soft); padding-top: 12px; }
-details summary { cursor: pointer; color: var(--accent); font-size: 15px; list-style: none; }
+details summary { cursor: pointer; color: var(--accent); font-size: 15px; list-style: none; min-height: 44px;
+  display: flex; align-items: center; margin: -10px 0; }
 details summary::-webkit-details-marker { display: none; }
 details summary::after { content: " ›"; display: inline-block; transition: transform .2s; }
 details[open] summary::after { transform: rotate(90deg); }
@@ -188,7 +195,14 @@ details > .tie { margin-top: 10px; }
 .how .num { font: 600 13px var(--display); color: var(--accent); margin-bottom: 6px; }
 .how h4 { font: 600 19px/1.25 var(--display); margin: 0 0 6px; letter-spacing: -.02em; }
 .how p { margin: 0; color: var(--muted); font-size: 15px; }
-footer { border-top: 1px solid var(--rule-soft); margin-top: 48px; padding: 22px 0 40px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+.limits .card { padding: 24px; display: grid; gap: 8px; align-content: start; }
+.limits .icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--warn-soft); color: var(--warn); }
+.limits .icon svg { width: 20px; height: 20px; }
+.limits h4 { font: 600 19px/1.25 var(--display); margin: 0; letter-spacing: -.02em; }
+.limits p { margin: 0; color: var(--muted); font-size: 15px; }
+#limits { min-height: calc(100vh - 64px); } /* the last section can scroll to the top, so its nav link lands on it */
+footer { border-top: 1px solid var(--rule-soft); margin-top: 32px; padding: 22px 0 40px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 footer p { margin: 0 0 6px; max-width: 80ch; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
@@ -273,9 +287,23 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
     </div>
   </section>
 
-  <footer id="limits">
-    <p><b>Limits.</b> Conflict Check shows connections disclosed somewhere else (papers, bios, payment records) that an article didn't mention. It can't find ties that were never disclosed, and “no confirmed connections” is a normal result.</p>
-    <p>Every quote is checked against the page it came from. Open Payments matches by name and location, not employer.</p>
+  <section class="block" id="limits" aria-labelledby="limits-h">
+    <div class="section-head"><h2 id="limits-h">What it can't do.</h2></div>
+    <p class="lead">Conflict Check is built to never accuse the wrong person. That means it says less, not more, when the evidence is thin.</p>
+    <div class="limits">
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></div>
+        <h4>Ties never disclosed</h4><p>It finds connections disclosed somewhere else, in papers, bios and payment records. A tie that was never written down anywhere can't be found.</p></div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8h5M19.5 5.5v5"/></svg></div>
+        <h4>People with common names</h4><p>If ORCID can't single out one person, nothing is searched until you pick the right record. Experts without a research record often can't be confirmed.</p></div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5S9.2 10 12 10s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></div>
+        <h4>Payment records</h4><p>CMS Open Payments covers US physicians only, and matches by name and location, not employer. It's shown as supporting evidence, never as proof.</p></div>
+      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
+        <h4>Up to five experts</h4><p>Each article is limited to five experts to keep searches focused. “No confirmed connections” is a normal, honest result.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Every quote is checked against the page it came from. No AI model states a connection.</p>
   </footer>
 </div>
 
@@ -350,7 +378,7 @@ $("f").addEventListener("submit", async ev => {
 
 function renderReview() {
   $("rows").innerHTML = state.experts.map((e, i) => `<div class="person ${e.selected ? "" : "off"}">
-    <input class="check" type="checkbox" data-i="${i}" data-k="selected" ${e.selected ? "checked" : ""} aria-label="Check ${esc(e.name || "this expert")}">
+    <label class="check-hit"><input class="check" type="checkbox" data-i="${i}" data-k="selected" ${e.selected ? "checked" : ""} aria-label="Check ${esc(e.name || "this expert")}"></label>
     <input class="field" type="text" data-i="${i}" data-k="name" value="${esc(e.name)}" placeholder="First and last name" aria-label="Name">
     <input class="field aff" type="text" data-i="${i}" data-k="affiliation" value="${esc(e.affiliation || "")}" placeholder="Affiliation, e.g. Lakeside University" aria-label="Affiliation">
     <div class="ctx">${e.kind === "other" ? `<b>Not an independent expert${e.role ? " (" + esc(e.role) + ")" : ""}.</b> ` : ""}${e.added ? "Added by you." : mask(e.context)}</div>
@@ -467,6 +495,15 @@ function busy(btn, label) {
   else if (btn.dataset.label != null) { btn.innerHTML = btn.dataset.label; btn.disabled = false; }
 }
 $("mask").addEventListener("change", () => { renderReview(); renderResults(); renderCalls(); });
+
+/* ---------- nav: highlight the section in view ---------- */
+const navLinks = [...document.querySelectorAll(".nav-links a")];
+const spy = new IntersectionObserver(entries => {
+  for (const en of entries) if (en.isIntersecting) {
+    navLinks.forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + en.target.id));
+  }
+}, { rootMargin: "-45% 0px -50% 0px" });
+navLinks.forEach(a => { const t = document.querySelector(a.getAttribute("href")); if (t) spy.observe(t); });
 </script>
 </body>
 </html>
