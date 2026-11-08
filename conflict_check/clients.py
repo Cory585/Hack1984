@@ -48,6 +48,38 @@ def exa_search(s: Session, query: str, num_results: int = 5, category: str | Non
     return data.get("results") or []
 
 
+def orcid_person(s: Session, orcid: str) -> dict:
+    """Public personal-details record, used to check a user-picked ORCID iD."""
+    return s.request("orcid", f"orcid record: {orcid}", "GET",
+                     f"{ORCID}/{urllib.parse.quote(orcid)}/personal-details", {"Accept": "application/json"})
+
+
+OPEN_PAYMENTS = "https://openpaymentsdata.cms.gov/api/1/datastore/query"
+OP_FIELDS = [
+    "covered_recipient_npi", "covered_recipient_first_name", "covered_recipient_last_name",
+    "recipient_city", "recipient_state", "covered_recipient_specialty_1",
+    "applicable_manufacturer_or_applicable_gpo_making_payment_name",
+    "total_amount_of_payment_usdollars", "nature_of_payment_or_transfer_of_value", "date_of_payment",
+]
+
+
+def open_payments_query(s: Session, dataset_id: str, year: str, first: str, last: str,
+                        manufacturer_contains: str, limit: int = 500) -> list[dict]:
+    """CMS Open Payments general payments for one physician name from one manufacturer."""
+    cond = [
+        {"property": "covered_recipient_last_name", "value": last.upper(), "operator": "="},
+        {"property": "covered_recipient_first_name", "value": first.upper(), "operator": "="},
+        {"property": "applicable_manufacturer_or_applicable_gpo_making_payment_name",
+         "value": manufacturer_contains.upper(), "operator": "contains"},
+    ]
+    data = s.request(
+        "openpayments", f"open payments {year}: {first} {last} <- {manufacturer_contains}", "POST",
+        f"{OPEN_PAYMENTS}/{dataset_id}/0", {},
+        {"conditions": cond, "limit": limit, "results": True, "count": False, "properties": OP_FIELDS},
+    )
+    return data.get("results") or []
+
+
 def orcid_search(s: Session, given: str, family: str, affiliation: str | None = None) -> dict:
     q = f'given-names:"{given}" AND family-name:"{family}"'
     if affiliation:

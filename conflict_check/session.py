@@ -50,6 +50,7 @@ class Session:
         fetcher: Fetcher | None = None,
         tavily_key: str | None = None,
         exa_key: str | None = None,
+        on_call: Callable[[dict], None] | None = None,
     ):
         self.cache_dir = cache_dir
         self.replay = replay
@@ -57,6 +58,7 @@ class Session:
         self.tavily_key = tavily_key if tavily_key is not None else os.environ.get("TAVILY_API_KEY")
         self.exa_key = exa_key if exa_key is not None else os.environ.get("EXA_API_KEY")
         self.calls: list[dict] = []
+        self.on_call = on_call  # e.g. stream each call to the UI's API panel as it happens
 
     def key(self, api: str) -> str:
         k = {"tavily": self.tavily_key, "exa": self.exa_key}.get(api)
@@ -91,11 +93,14 @@ class Session:
         return data
 
     def _log(self, api: str, label: str, source: str, t0: float, error: str | None = None) -> None:
-        self.calls.append({
+        call = {
             "n": len(self.calls) + 1,
             "api": api,
             "label": label,
             "source": source,  # live | cache | miss | error
             "ms": round((time.perf_counter() - t0) * 1000),
             "error": error,
-        })
+        }
+        self.calls.append(call)
+        if self.on_call:
+            self.on_call(call)
