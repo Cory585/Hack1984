@@ -216,3 +216,21 @@ class TestCoverageAndDeterminism(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSameNameCap(unittest.TestCase):
+    def rate(self, seen):
+        t = tie(evidence=[{"url": "https://x.edu/a", "matched_by": "full name", "paper_signals": True,
+                           "published": "2025-01-01", "affiliation_seen": seen}])
+        return score_tie(t, ORCID, NOW)
+
+    def test_capped_weak_when_no_source_mentions_their_institution(self):
+        r = self.rate(False)
+        self.assertEqual((r["score"], r["label"], r["capped"]), (59, "Weak", True))
+        self.assertIn("different person", r["cap_note"])
+
+    def test_not_capped_when_seen_or_unknown(self):
+        for seen in (True, None):
+            r = self.rate(seen)
+            self.assertNotIn("capped", r)
+            self.assertGreater(r["score"], 59)

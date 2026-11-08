@@ -179,6 +179,16 @@ def mentions_org(org: str, text: str) -> bool:
     return bool(toks) and all(re.search(rf"\b{re.escape(t)}\b", text, re.I) for t in toks)
 
 
+def mentions_affiliation(affiliation: str, text: str) -> bool:
+    """Does the page mention this institution, by name or by its initials ("OHSU")? Used to notice pages
+    that may be about a different person with the same name."""
+    if mentions_org(affiliation, text):
+        return True
+    words = [w for w in re.findall(r"[A-Za-z][\w'’\-]*", affiliation) if w.lower() not in CONNECTORS]
+    acronym = "".join(w[0] for w in words).upper()
+    return len(acronym) >= 3 and bool(re.search(rf"\b{acronym}\b", text))
+
+
 def same_org(a: str, b: str) -> bool:
     ta, tb = {t.lower() for t in distinctive_tokens(a)}, {t.lower() for t in distinctive_tokens(b)}
     return bool(ta and tb) and (ta <= tb or tb <= ta)
@@ -409,6 +419,8 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
         text = page.get("text") or ""
         if not strong.search(text):
             continue  # page isn't demonstrably about this person
+        # None when we don't know their employer; False means this page never mentions it.
+        aff_seen = (any(mentions_affiliation(ex, text) for ex in exclude_orgs) if exclude_orgs else None)
         paper_like = bool(DOI.search(text) and COI_HEADING.search(text))  # reliability: is this a paper?
         acr = acronyms_in(text)
         for seg, quote, how in person_statements(text, name):
@@ -452,7 +464,8 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
                 if ev is None:
                     tie["evidence"].append({"url": page.get("url"), "title": page.get("title"), "api": page.get("api"),
                                             "quote": quote, "verified": True, "matched_by": how,
-                                            "published": page.get("published"), "paper_signals": paper_like})
+                                            "published": page.get("published"), "paper_signals": paper_like,
+                                            "affiliation_seen": aff_seen})
                 elif ATTRIBUTION.index(how) < ATTRIBUTION.index(ev["matched_by"]):
                     ev.update(quote=quote, matched_by=how)  # same page, stronger attribution: keep that one
     return ties

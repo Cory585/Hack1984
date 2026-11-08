@@ -1202,6 +1202,7 @@ function relWhy(r, kind = "tie") {
     <span class="fnote">${mask(f.note)}</span></li>`).join("");
   return `<details class="why"><summary>Why ${r.score}?</summary><ul class="factors">${rows}</ul>
     ${r.bonus ? `<p class="hint">+${r.bonus} for a matching CMS Open Payments record.</p>` : ""}
+    ${r.capped ? `<p class="hint">Capped at ${r.score}: ${esc(r.cap_note)}</p>` : ""}
     <p class="hint">${esc(REL_TEXT[kind].explain)}</p></details>`;
 }
 const CATEGORY_RANK = ["employment", "equity", "board", "founder", "patents / royalties", "consulting", "advisory board",

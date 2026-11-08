@@ -275,3 +275,16 @@ class TestNoise(unittest.TestCase):
     def test_director_at_an_outside_company_is_still_a_tie(self):
         page = "Maren Okafor is a director of Halden Biotech."
         self.assertIn("Halden Biotech", ties(page))
+
+
+class TestSameNameGuard(unittest.TestCase):
+    def test_affiliation_seen_flags_pages_that_never_mention_the_institution(self):
+        from conflict_check.ties import mentions_affiliation
+        about = "Maren Okafor consults for Veltrix Pharmaceuticals."
+        t = ties(about)["Veltrix Pharmaceuticals"]
+        self.assertFalse(t["evidence"][0]["affiliation_seen"])
+        t = ties(about + " She is at Lakeside University.")["Veltrix Pharmaceuticals"]
+        self.assertTrue(t["evidence"][0]["affiliation_seen"])
+        self.assertIsNone(ties(about, exclude=[])["Veltrix Pharmaceuticals"]["evidence"][0]["affiliation_seen"])
+        self.assertTrue(mentions_affiliation("Oregon Health and Science University", "Dr. X, OHSU, reports"))
+        self.assertFalse(mentions_affiliation("Oregon Health and Science University", "Oregon State"))

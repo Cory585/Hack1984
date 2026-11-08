@@ -19,6 +19,10 @@ clamped to 0..100 and rounded half-up to a whole number.
   organization     .05    full name 1.0 · bare acronym (GSK) .8
   Open Payments    bonus  +8 when a single physician's payments from this company match; never negative
 
+Same-name guard: when we know the expert's institution and none of the pages behind a connection
+mentions it, the page may be about a different person with the same name. The score is then capped at
+59 (Weak) and the card says why. Nothing is capped when the institution is unknown.
+
 Labels: Strong >= 80, Moderate >= 60, Weak below. A score exactly on a boundary takes the higher
 label (80 is Strong). Rounding happens before labelling, and half-up: 79.5 -> 80 -> Strong.
 
@@ -52,6 +56,7 @@ from decimal import ROUND_HALF_UP, Decimal
 WEIGHTS = {"identity": .20, "attribution": .20, "source": .20, "corroboration": .15,
            "wording": .10, "recency": .10, "organization": .05}
 OP_BONUS = 8
+SAME_NAME_CAP = 59
 BANDS = ((80, "Strong"), (60, "Moderate"), (0, "Weak"))
 
 IDENTITY = {"orcid": 1.0, "user": .8}
@@ -177,6 +182,9 @@ def score_tie(tie: dict, identity: dict | None, now: int | None = None) -> dict:
     score = _weighted_score(factors, bonus)
     rel = {"score": score, "label": label(score), "factors": factors, "bonus": bonus,
            "sites": n_sites, "best_source": best_kind}
+    if all(ev.get("affiliation_seen") is False for ev in evidence) and score > SAME_NAME_CAP:
+        rel.update(score=SAME_NAME_CAP, label=label(SAME_NAME_CAP), capped=True,
+                   cap_note="No source mentions their institution, so it could be a different person with the same name.")
     tie["reliability"] = rel
     return rel
 
