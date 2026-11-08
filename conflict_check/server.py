@@ -21,6 +21,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .demo import ARTICLE as DEMO_ARTICLE, demo_session
+from .openpayments import datasets as op_datasets
 from .pipeline import check_article, find_experts
 from .session import Session
 
@@ -40,7 +41,8 @@ CACHE = os.path.join(ROOT, "cache")
 
 
 def load_env(path: str = os.path.join(ROOT, ".env")) -> None:
-    if not os.path.exists(path):
+    # CC_NO_DOTENV=1 ignores .env (the e2e walk uses it to run a server with no API keys).
+    if os.environ.get("CC_NO_DOTENV") or not os.path.exists(path):
         return
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -106,7 +108,9 @@ class Handler(BaseHTTPRequestHandler):
             # Rarely changes: serve from cache instantly, refresh in the background.
             self._json(200, {"replay_default": self.default_replay, "cache_dir": os.path.relpath(cache_dir(), ROOT),
                              "keys": {"tavily": bool(os.environ.get("TAVILY_API_KEY")),
-                                      "exa": bool(os.environ.get("EXA_API_KEY"))}},
+                                      "exa": bool(os.environ.get("EXA_API_KEY"))},
+                             # the page's Open Payments copy follows OPEN_PAYMENTS / OPEN_PAYMENTS_DATASETS
+                             "open_payments": {"enabled": bool(op_datasets()), "years": sorted(op_datasets())}},
                        "max-age=0, stale-while-revalidate=300")
         elif path == "/api/demo":
             self._json(200, {"text": DEMO_ARTICLE}, "max-age=3600")

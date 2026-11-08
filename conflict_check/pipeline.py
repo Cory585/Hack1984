@@ -7,8 +7,9 @@ from .clients import exa_search, tavily_extract, tavily_search
 from .extract import Expert, extract_experts
 from .identity import identity_from_pick, resolve_identity
 from .openpayments import badge_for_tie
+from .reliability import rate_expert
 from .session import Session
-from .ties import classify_tie, find_ties, surname
+from .ties import classify_tie, find_ties, person_patterns, surname
 
 MAX_EXPERTS = 5
 SCOPE_NOTE = ("Shows connections disclosed elsewhere (papers, bios, filings) that this article didn't "
@@ -61,14 +62,20 @@ def gather_pages(s: Session, name: str, affiliation: str | None) -> list[dict]:
     aff = affiliation or ""
     pages: list[dict] = []
     for r in exa_search(s, f'"{name}" {aff} competing interests disclosure', 5, "research paper"):
-        pages.append({"url": r.get("url"), "title": r.get("title"), "text": r.get("text") or "", "api": "exa"})
+        pages.append({"url": r.get("url"), "title": r.get("title"), "text": r.get("text") or "", "api": "exa",
+                      "published": r.get("publishedDate")})
     hits = tavily_search(s, f'"{name}" {aff} consultant OR "advisory board" OR "conflict of interest"', 5)
     seen = {p["url"] for p in pages}
     urls = [h["url"] for h in hits if h.get("url") and h["url"] not in seen][:5]
-    titles = {h.get("url"): h.get("title") for h in hits}
+    meta = {h.get("url"): h for h in hits}
     for r in tavily_extract(s, urls):
-        pages.append({"url": r.get("url"), "title": titles.get(r.get("url")),
-                      "text": r.get("raw_content") or "", "api": "tavily"})
+        hit = meta.get(r.get("url")) or {}
+        pages.append({"url": r.get("url"), "title": hit.get("title"), "text": r.get("raw_content") or "",
+                      "api": "tavily", "published": hit.get("published_date")})
+    # Which pages actually mention this person: coverage only counts those.
+    strong = person_patterns(name)[0]
+    for p in pages:
+        p["about"] = bool(strong.search(p["text"]))
     return pages
 
 
@@ -100,8 +107,10 @@ def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: st
     out["pages_checked"] = len(pages)
     out["ties"] = [t for t in ties if not t["disclosed_in_article"]]
     out["disclosed"] = [t for t in ties if t["disclosed_in_article"]]
-    out["ties"].sort(key=lambda t: (not t["related_to_story"], t["org"]))
     out["status"] = "connections_found" if out["ties"] else "no_confirmed_connections"
+    # Scores every tie, re-orders out["ties"] / out["disclosed"] in place (status above only depends on
+    # whether there are ties, not their order) and adds out["coverage"].
+    rate_expert(out, pages)
     return out
 
 

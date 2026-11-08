@@ -11,7 +11,8 @@ Python 3.10+, no third-party packages.
 ```sh
 cp .env.example .env              # add TAVILY_API_KEY and EXA_API_KEY
 python -m conflict_check.server   # http://localhost:8000
-python -m unittest                # 12 offline tests (fictional fixtures)
+python -m unittest                # offline tests (fictional fixtures)
+python tests/e2e/walk.py          # browser walk-through (needs Edge/Chrome and a running server)
 ```
 
 ORCID and CMS Open Payments are free public APIs and need no key.
@@ -41,7 +42,7 @@ Every state has a way forward: errors offer **Try again** plus a context-specifi
 ```mermaid
 flowchart TD
     A([Open the site]) --> B{Start}
-    B -->|"✦ Try the live demo"| D[Demo article loaded<br/>fictional data, no network]
+    B -->|"Try the demo, or<br/>Run this example live (preview)"| D[Demo article loaded<br/>fictional data, no network]
     B -->|Link or Paste text| C[Article input]
     C -->|"Find experts (Ctrl+Enter)"| E[[Skeleton rows while loading]]
     D --> E
@@ -71,6 +72,33 @@ flowchart TD
 
 The **How it works** cards expand to full width with a view transition (click, **Close** or **Esc**). **Limits** is a separate section, and the nav underlines the section in view.
 
+## Design system
+
+The UI is one page (`web/index.html`) built from a small set of tokens defined on `:root`. Components only use these, so spacing, type and shape stay consistent.
+
+| Token group | Values |
+|---|---|
+| Type (`--fs-*`) | 2xs 11 · xs 12 · sm 14 · base 16 · md 18 · lg 22 · xl clamp(26–34) · display clamp(36–64) px |
+| Spacing (`--sp-1…8`) | 4 · 8 · 12 · 16 · 24 · 32 · 48 · 72 px |
+| Radius (`--r-*`) | xs 6 · sm 12 · md 18 · lg 24 · pill; squircle (`corner-shape`) where supported |
+| Motion | `--dur-fast` .15s · `--dur` .2s · `--ease`; everything stops under reduced motion |
+| Color | semantic tokens (`--ink`, `--surface`, `--accent`, `--flag`, `--ok`, `--warn`, …) redefined for dark mode |
+
+**Rules the page follows:**
+- **Icons:** one SVG set (`#i-*` symbols): 24px grid, 2px round strokes, `currentColor`. No text glyphs as icons.
+- **Fonts:** Unbounded for display, the system UI font for text. Monospace (Space Mono) is only for code-like text: API query labels, keys, code samples.
+- **No filler:** no decorative badges or labels that repeat what the layout already says. Status chips, tie categories and reliability pills carry information.
+- **Optical alignment:**
+  - the display headline is pulled back by its side bearing to line up with the text
+  - opening quote marks hang
+  - circles are drawn about 6% larger than squares
+  - icons and numerals are nudged to their visual centre
+  - buttons trim to cap height where `text-box` is supported
+- **Headlines** use `text-wrap: balance` and body text uses `pretty`. The hero headline is two unbreakable phrases, so it's one line or "Who pays / the experts?", never split mid-phrase.
+- **Loading:** any button whose action takes time shows a spinner, a shine sweep and `aria-busy` until it settles. Content that's loading shows skeletons.
+
+The hero puts the main feature first (the check itself, enlarged) beside a live-styled **product preview**, built from the same components as real results, with fictional data. Its **Run this example live** button runs the demo.
+
 ## Command line
 
 Faster than the UI for tuning on real articles:
@@ -91,7 +119,7 @@ python -m conflict_check.cli --file article.txt --expert "Jane Doe@Harvard Medic
 | Find evidence pages: research papers (conflict statements) and web bios | `pipeline.gather_pages` | Exa research-paper search, Tavily search + extract |
 | Extract ties: a clause naming the person, an organization and a tie keyword | `ties.find_ties` | none, rule-based |
 | Classify: disclosed in the article / related to this story / other | `ties.classify_tie` | none |
-| Confirmation badge: payments from that company to a physician with that name | `openpayments.py` | CMS Open Payments |
+| Confirmation badge: payments from that company to a clinician with that name | `openpayments.py` | CMS Open Payments |
 
 Every call goes through `session.Session`, which caches each response to disk (keyed by request; keys are never stored), supports replay mode, and reports each call to the UI as it happens.
 
@@ -109,18 +137,52 @@ Every call goes through `session.Session`, which caches each response to disk (k
 
 **Caching.** The page is sent with `no-cache`, so a demo laptop never shows a stale UI. `/api/config` uses `stale-while-revalidate`. In the browser, a repeat check of the same article and experts shows the last result immediately, marked **Updating**, while fresh results stream in. The last 8 checks are kept in local storage.
 
+## Reliability ratings
+
+The risk review scored the idea's reliability 2/5 because each expert goes through many steps that can fail. So every result shows how much to trust it, and why. The rules live in `conflict_check/reliability.py`.
+
+**Per connection (0–100).** 100 × the weighted mean of seven factors, plus a bonus, clamped to 0–100 and rounded half-up:
+
+| Factor | Weight | Values |
+|---|---|---|
+| Identity | 20% | confirmed by ORCID 1.0 · picked by a person 0.8 · unknown 0.5 |
+| Attribution | 20% | best evidence named the person by full name 1.0 · surname 0.85 · initials 0.75 · semicolon continuation 0.7 · he/she 0.6 |
+| Source | 20% | research-paper disclosure 1.0 · institutional page (.edu, .gov, .ac.xx) 0.85 · other web page 0.6 |
+| Corroboration | 15% | independent websites: 1 → 0.55 · 2 → 0.85 · 3+ → 1.0 (pages on one site count once) |
+| Wording | 10% | employment, equity, board, founder, patents 1.0 · consulting, advisory, research funding, speaking 0.9 · personal fees 0.75 · other 0.6 |
+| Recency | 10% | newest year in the evidence: ≤3 years 1.0 (disclosures usually cover 36 months) · ≤6 years 0.75 · older 0.5 · none found 0.7 |
+| Organization | 5% | full name 1.0 · bare acronym 0.8 |
+| Open Payments | bonus | +8 when one physician's payments from that company match; never negative |
+
+**Labels:** Strong 80+, Moderate 60–79, Weak below 60. The score is rounded before labelling, and a score exactly on a boundary takes the higher label (79.5 → 80 → Strong).
+
+**What happens on a tie.** Connections are ordered by these rules, in turn:
+1. Named in this story.
+2. Higher score.
+3. More independent websites.
+4. Better best source.
+5. More serious kind of tie (employment > equity > board > … > personal fees).
+6. Organization name, A–Z, ignoring case.
+7. The order they were found.
+
+The order is fully deterministic.
+
+**Coverage (per expert).** How thorough the search was, based on identity, pages checked and which search channels returned pages. It matters most for a clean "no confirmed connections" result: thin coverage makes that weak evidence. It isn't rated when identity wasn't confirmed or the search failed.
+
+In the UI, each connection shows a pill (for example "Strong · 92"), and **Why 92?** lists every factor with a bar and a plain-language note.
+
 ## Safety rules (from the risk review)
 
 - **No identity, no ties.** If ORCID doesn't return exactly one match for name + affiliation, nothing is searched until a person picks the right record.
 - **No model states a tie.** A tie appears only if a fetched page has a clause naming both the person and the organization, and `verify_quote` confirms the quote is on that page.
-- **Open Payments only confirms.** It never creates a tie, because it matches on name and city, not employer. The badge shows location and NPI so a person can judge, and it's withheld if more than one physician with that name was paid by the company.
+- **Open Payments only confirms.** It never creates a tie, because it matches on name and city, not employer. The badge shows location and NPI so a person can judge, and it's withheld if more than one clinician with that name was paid by the company.
 - **Declining is a valid result.** "No confirmed connections" and "Identity not confirmed" are normal outcomes.
 - **The wording is "connections the article didn't mention",** never "undisclosed conflicts" or "hidden ties".
 - **On stage:** mask names, demo only hand-checked articles, and include one control article that should find nothing.
 
 ## Demo mode
 
-**Built-in demo:** click **✦ Try the live demo**. It runs the real pipeline on a fictional article, people and companies, with realistic delays and no keys or network. It covers every result state: a confirmed expert with ties and an Open Payments badge, an expert you confirm by picking a candidate, and a spokesperson who is set aside.
+**Built-in demo:** click **Try the demo** in the check card, or **Run this example live** under the product preview. It runs the real pipeline on a fictional article, people and companies, with realistic delays and no keys or network. It covers every result state: a confirmed expert with ties and an Open Payments badge, an expert you confirm by picking a candidate, and a spokesperson who is set aside.
 
 **Replaying real runs:** every live response is cached, so a run you've done once can be replayed with no network:
 

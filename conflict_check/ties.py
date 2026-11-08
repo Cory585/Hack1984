@@ -43,6 +43,10 @@ NEGATION = re.compile(
 )
 EXCEPTION = re.compile(r"\b(?:except|other\s+than|apart\s+from|besides|aside\s+from)\b", re.I)
 PRONOUN_START = re.compile(r"^(?:He|She|They|His|Her|Their)\b")
+# Signs a page is a research paper: a DOI plus a conflict-of-interest section heading.
+DOI = re.compile(r"\b10\.\d{4,9}/[^\s\"<>]+")
+COI_HEADING = re.compile(r"\b(?:competing\s+interests?|conflicts?\s+of\s+interests?|declarations?\s+of\s+interests?|"
+                         r"(?:financial\s+)?disclosures?)\s*[:.\n]", re.I)
 
 ORG_RUN = re.compile(r"(?:[A-Z][\w&'’\-]*)(?:\s+(?:of|for|&|do|da|de|[A-Z][\w&'’\-]*)){0,6}")  # "Eli Lilly do Brasil"
 ABBREV = re.compile(r"(?:\b(?:Dr|Prof|Mr|Ms|Mrs|St|Inc|Co|Corp|Ltd|al|vs|No)|\b[A-Z])\.$")
@@ -50,7 +54,8 @@ SUBJECT_VERB = (r"(?:reports?|reported|has|have|had|received|receives|is|was|ser
                 r"holds?|held|owns?|consults?|consulted|acts?|acted|discloses?|disclosed|works?|worked)")
 # Author initials as used in disclosure statements: "J.L.", "JL", "JFKS", "SvLS" (with a lowercase particle).
 INITIALS = r"(?:[A-Z]\.\s?){2,5}|[A-Z](?:[a-z]?[A-Z]){1,5}\b"
-SUBJECT = rf"(?:(?:Drs?\.?|Prof\.?|Professor|Mr\.?|Ms\.?)\s+)?(?:{INITIALS}|[A-Z][a-z]+(?:\s+[A-Z]{{1,2}}\b)?)"
+# A sentence subject: initials, or a surname optionally led by a title and/or one initial ("M. Okafor").
+SUBJECT = rf"(?:(?:Drs?\.?|Prof\.?|Professor|Mr\.?|Ms\.?)\s+)?(?:{INITIALS}|(?:[A-Z]\.\s?)?[A-Z][a-z]+(?:\s+[A-Z]{{1,2}}\b)?)"
 SEGMENT_SPLIT = re.compile(rf"(?:,\s*|\s+)(?:and\s+|while\s+|whereas\s+|but\s+)?(?={SUBJECT}\s+{SUBJECT_VERB}\b)")
 
 # Capitalised words that start disclosure phrases rather than names of organizations.
@@ -128,8 +133,8 @@ def segments(clause: str) -> list[str]:
     """Cut a clause wherever a new subject starts: '…, and Dr Okafor reports …'."""
     parts, last = [], 0
     for m in SEGMENT_SPLIT.finditer(clause):
-        if re.search(r"\b(?:Drs?|Prof|Professor|Mr|Ms|Mrs)\.?$", clause[:m.start()]):
-            continue  # don't separate a title from its name
+        if re.search(r"(?:\b(?:Drs?|Prof|Professor|Mr|Ms|Mrs)\.?|\b[A-Z]\.)$", clause[:m.start()]):
+            continue  # don't separate a title or an initial from its name ("Dr Lee", "M. Okafor")
         if m.start() > last:
             parts.append(clause[last:m.start()])
             last = m.end()
@@ -273,16 +278,35 @@ def keyword_for(seg: str, pos: int) -> str:
     return m.group(1).lower()
 
 
-def person_statements(text: str, name: str) -> list[tuple[str, str]]:
-    """(statement, quote) pairs about this person. A statement counts when it:
-      * names the person (surname or initials) in its own segment, or
+ATTRIBUTION = ("full name", "surname + initial", "surname", "initials", "continuation", "pronoun")  # strongest first
+
+
+def person_statements(text: str, name: str) -> list[tuple[str, str, str]]:
+    """(statement, quote, matched_by) triples about this person. A statement counts when it:
+      * names the person in its own segment ("full name", "surname" or "initials"), or
       * continues their sentence after a semicolon without a new subject
-        ("Dr X has received fees from A; personal fees from B"), or
-      * starts with he/she/they right after a sentence about them.
+        ("Dr X has received fees from A; personal fees from B") -> "continuation", or
+      * starts with he/she/they right after a sentence about them -> "pronoun".
+    matched_by records how the statement named the person: "full name", "surname + initial"
+    ("Okafor M", "M. Okafor"), "surname", "initials", "continuation" or "pronoun".
     The quote covers only this person's own words: from where their run of clauses starts in the
     sentence to the end of the current clause, or just their segment when someone else shares the
     clause. It is always an exact slice of the page (at most 600 characters), so it verifies."""
-    _, clause_pat = person_patterns(name)
+    strong, clause_pat = person_patterns(name)
+    first, last, _ = name_parts(name)
+    full_re = re.compile(rf"\b{re.escape(first)}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{re.escape(last)}\b"
+                         rf"|\b{re.escape(last)},[ \t]+{re.escape(first)}\b")
+    surname_re = re.compile(rf"\b{re.escape(last)}\b")
+
+    def matched_by(seg: str) -> str:
+        if full_re.search(seg):
+            return "full name"
+        if strong.search(seg):
+            return "surname + initial"
+        if clause_pat.search(seg):
+            return "surname" if surname_re.search(seg) else "initials"
+        return "pronoun" if PRONOUN_START.match(seg) else "continuation"
+
     out, prev_about = [], False
     for sent in split_sentences(text):
         sent_about = False
@@ -312,7 +336,7 @@ def person_statements(text: str, name: str) -> list[tuple[str, str]]:
                 if len(segs) > 1 or run_start is None:
                     run_start = seg_start  # someone else shares this clause: quote only our part of it
                 quote = sent[run_start:seg_start + len(seg)][:600]
-                out.append((seg, quote))
+                out.append((seg, quote, matched_by(seg)))
                 sent_about = True
             carry = ours  # the next semicolon part continues whoever this part ended on
         prev_about = sent_about
@@ -328,7 +352,8 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
         text = page.get("text") or ""
         if not strong.search(text):
             continue  # page isn't demonstrably about this person
-        for seg, quote in person_statements(text, name):
+        paper_like = bool(DOI.search(text) and COI_HEADING.search(text))  # reliability: is this a paper?
+        for seg, quote, how in person_statements(text, name):
             kw = TIE.search(seg)
             if not kw or (NEGATION.search(seg) and not EXCEPTION.search(seg)):
                 continue
@@ -341,17 +366,25 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
                 # Merge spellings of one company ("AstraZeneca" / "Astra Zeneca", "Lilly" / "Eli Lilly").
                 tie = next((t for t in ties if same_company(t["org"], org)), None)
                 if tie is None:
-                    tie = {"org": org, "relation": rel, "category": category(rel), "evidence": [], "aliases": []}
+                    tie = {"org": org, "relation": rel, "category": category(rel), "categories": [],
+                           "evidence": [], "aliases": []}
                     ties.append(tie)
-                elif org != tie["org"] and org not in tie["aliases"]:
+                if category(rel) not in tie["categories"]:
+                    tie["categories"].append(category(rel))
+                # Independent of the category check above (an elif here skipped aliases for new categories).
+                if org != tie["org"] and org not in tie["aliases"]:
                     tie["aliases"].append(org)
                     if len(org) > len(tie["org"]):  # show the fullest spelling
                         tie["aliases"].append(tie["org"])
                         tie["aliases"].remove(org)
                         tie["org"] = org
-                if not any(ev["url"] == page.get("url") for ev in tie["evidence"]):
-                    tie["evidence"].append({"url": page.get("url"), "title": page.get("title"),
-                                            "api": page.get("api"), "quote": quote, "verified": True})
+                ev = next((e for e in tie["evidence"] if e["url"] == page.get("url")), None)
+                if ev is None:
+                    tie["evidence"].append({"url": page.get("url"), "title": page.get("title"), "api": page.get("api"),
+                                            "quote": quote, "verified": True, "matched_by": how,
+                                            "published": page.get("published"), "paper_signals": paper_like})
+                elif ATTRIBUTION.index(how) < ATTRIBUTION.index(ev["matched_by"]):
+                    ev.update(quote=quote, matched_by=how)  # same page, stronger attribution: keep that one
     return ties
 
 

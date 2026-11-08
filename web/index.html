@@ -33,7 +33,15 @@
   --grid: rgba(122, 60, 255, .07);
   --font: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --display: "Unbounded", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
-  --mono: "Space Mono", ui-monospace, Consolas, monospace;
+  --mono: "Space Mono", ui-monospace, Consolas, monospace;  /* code-like text only: queries, keys, ids */
+  /* ---- Design system: every component draws from these scales (see README > Design system) ---- */
+  --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 14px; --fs-base: 16px; --fs-md: 18px; --fs-lg: 22px;
+  --fs-xl: clamp(26px, 3.4vw, 34px); --fs-display: clamp(36px, 5vw, 64px);
+  --lh-tight: 1.05; --lh-snug: 1.25; --lh-body: 1.55;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 72px;
+  --r-xs: 6px; --r-sm: 12px; --r-md: 18px; --r-lg: 24px; --r-pill: 999px;
+  --dur-fast: .15s; --dur: .2s; --ease: cubic-bezier(.2, .8, .2, 1);
+  --icon: 1.15em; --control: 44px;
   color-scheme: light;
 }
 :root[data-theme="dark"] {
@@ -74,12 +82,8 @@
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 72px; } /* anchors land below the sticky nav */
-body { margin: 0; color: var(--ink); font: 16px/1.55 var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh;
-  background: var(--page); background-attachment: fixed; }
-/* faint perspective-free grid, a Y2K staple */
-body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
-  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 44px 44px; mask-image: linear-gradient(180deg, #000, transparent 85%); }
+body { margin: 0; color: var(--ink); font: var(--fs-base)/1.55 var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh;
+  background: var(--bg); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; } a:hover { text-decoration: underline; }
 button, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--accent-3); outline-offset: 3px; }
@@ -90,13 +94,13 @@ button, input, textarea { font: inherit; color: inherit; }
 .nav { position: sticky; top: 0; z-index: 10; background: var(--nav); backdrop-filter: saturate(180%) blur(18px);
   -webkit-backdrop-filter: saturate(180%) blur(18px); border-bottom: 1px solid var(--rule-soft); }
 .nav::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--holo); opacity: .8; }
-.nav-in { max-width: 1120px; margin: 0 auto; height: 56px; padding: 0 22px; display: flex; align-items: center; gap: 24px; }
-.brand { font: 700 16px var(--display); letter-spacing: -.01em; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+.nav-in { max-width: 1120px; margin: 0 auto; height: 56px; padding: 0 var(--sp-5); display: flex; align-items: center; gap: var(--sp-5); }
+.brand { font: 700 var(--fs-base) var(--display); letter-spacing: -.01em; color: var(--ink); display: flex; align-items: center; gap: var(--sp-3); }
 .brand:hover { text-decoration: none; }
-.brand svg { width: 30px; height: 30px; padding: 6px; border-radius: 50%; color: #fff; background: var(--gel);
+.brand svg { width: 30px; height: 30px; padding: var(--sp-2); border-radius: 50%; color: #fff; background: var(--gel);
   box-shadow: 0 2px 8px -2px var(--accent), inset 0 1px 0 rgba(255, 255, 255, .6); }
-.nav-links { display: flex; gap: 6px; font: 600 13px var(--font); margin-left: auto; height: 100%; }
-.nav-links a { color: var(--ink-2); display: flex; align-items: center; padding: 0 12px; height: 100%; position: relative; font-weight: 600; }
+.nav-links { display: flex; gap: var(--sp-2); font: 600 var(--fs-sm) var(--font); margin-left: auto; height: 100%; }
+.nav-links a { color: var(--ink-2); display: flex; align-items: center; padding: 0 var(--sp-3); height: 100%; position: relative; font-weight: 600; }
 .nav-links a:hover { color: var(--ink); text-decoration: none; }
 .nav-links a.active { color: var(--ink); }
 .nav-links a.active::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 8px; height: 3px; border-radius: 3px; background: var(--holo); }
@@ -107,55 +111,51 @@ button, input, textarea { font: inherit; color: inherit; }
 @media (max-width: 600px) { .nav-links { display: none; } .theme { margin-left: auto; } }
 
 /* ---------- hero ---------- */
-.hero { text-align: center; padding: 84px 22px 44px; position: relative; overflow: hidden; }
-.eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 700 12px var(--mono); letter-spacing: .18em; text-transform: uppercase;
-  color: var(--ink); margin: 0 0 22px; padding: 7px 14px; border-radius: 999px; background: var(--surface);
-  border: 1px solid var(--rule); box-shadow: var(--shadow); }
-.eyebrow::before { content: "✦"; color: var(--accent-2); }
+.hero { text-align: center; padding: var(--sp-8) var(--sp-5) var(--sp-7); position: relative; overflow: hidden; }
 .hero h1 { font: 800 clamp(38px, 7.4vw, 82px)/1.02 var(--display); letter-spacing: -.035em; margin: 0;
   background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 2px 0 rgba(255, 255, 255, .55)) drop-shadow(0 10px 24px rgba(122, 60, 255, .3)); }
 .hero h1 .holo { background: var(--holo-text); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
   color: transparent; animation: shimmer 8s linear infinite; }
 @keyframes shimmer { to { background-position: 200% 0; } }
-.hero .sub { font-size: clamp(17px, 2.2vw, 21px); line-height: 1.5; color: var(--ink-2); max-width: 640px; margin: 22px auto 0; }
+.hero .sub { font-size: clamp(17px, 2.2vw, 21px); line-height: 1.5; color: var(--ink-2); max-width: 640px; margin: var(--sp-5) auto 0; }
 .spark { position: absolute; color: var(--accent-2); font-size: 28px; line-height: 1; pointer-events: none; user-select: none;
   animation: twinkle 3.2s ease-in-out infinite; }
 .spark.s1 { top: 18%; left: 12%; } .spark.s2 { top: 30%; right: 11%; color: var(--accent-3); font-size: 40px; animation-delay: .8s; }
-.spark.s3 { bottom: 16%; left: 22%; color: var(--accent); font-size: 18px; animation-delay: 1.6s; }
-.spark.s4 { bottom: 26%; right: 24%; font-size: 16px; animation-delay: 2.2s; }
+.spark.s3 { bottom: 16%; left: 22%; color: var(--accent); font-size: var(--fs-md); animation-delay: 1.6s; }
+.spark.s4 { bottom: 26%; right: 24%; font-size: var(--fs-base); animation-delay: 2.2s; }
 @keyframes twinkle { 0%, 100% { transform: scale(.7) rotate(0); opacity: .5; } 50% { transform: scale(1.1) rotate(20deg); opacity: 1; } }
 @media (max-width: 600px) { .spark { display: none; } }
 
 /* ---------- layout ---------- */
-.container { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
-section.block { padding: 28px 0; }
-.section-head { display: flex; align-items: center; gap: 14px; margin: 0 0 16px; flex-wrap: wrap; }
-.step { width: 38px; height: 38px; border-radius: 50%; color: #fff; display: grid; place-items: center; font: 700 15px var(--display);
+.container { max-width: 1120px; margin: 0 auto; padding: 0 var(--sp-5); }
+section.block { padding: var(--sp-6) 0; }
+.section-head { display: flex; align-items: center; gap: var(--sp-4); margin: 0 0 var(--sp-4); flex-wrap: wrap; }
+.step { width: 38px; height: 38px; border-radius: 50%; color: #fff; display: grid; place-items: center; font: 700 var(--fs-base) var(--display);
   flex: none; background: var(--gel); box-shadow: 0 4px 12px -4px var(--accent), inset 0 2px 0 rgba(255, 255, 255, .55); }
 h2 { font: 800 clamp(26px, 3.4vw, 34px)/1.1 var(--display); letter-spacing: -.03em; margin: 0; }
-.lead { color: var(--ink-2); margin: 0 0 18px; max-width: 70ch; }
+.lead { color: var(--ink-2); margin: 0 0 var(--sp-4); max-width: 70ch; }
 
-.card { background: var(--surface); border-radius: 24px; padding: 28px; box-shadow: var(--shadow);
+.card { background: var(--surface); border-radius: var(--r-lg); padding: var(--sp-6); box-shadow: var(--shadow);
   border: 1.5px solid var(--rule-soft); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
-.bg-band { padding: 12px 0 48px; }
+.bg-band { padding: var(--sp-3) 0 var(--sp-7); }
 
 /* ---------- input card: iridescent rim ---------- */
-.input-card { max-width: 780px; margin: 0 auto; display: grid; gap: 18px; position: relative; }
-.input-card::before { content: ""; position: absolute; inset: -2px; border-radius: 26px; padding: 2px; background: var(--holo);
+.input-card { max-width: 780px; margin: 0 auto; display: grid; gap: var(--sp-4); position: relative; }
+.input-card::before { content: ""; position: absolute; inset: -2px; border-radius: var(--r-lg); padding: 2px; background: var(--holo);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask-composite: exclude; pointer-events: none; }
-.segmented { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 4px; justify-self: center; border: 1px solid var(--rule); }
-.segmented button { border: 0; background: transparent; padding: 8px 20px; border-radius: 999px; font-size: 14px; font-weight: 600;
+.segmented { display: inline-flex; background: var(--surface-2); border-radius: var(--r-pill); padding: var(--sp-1); justify-self: center; border: 1px solid var(--rule); }
+.segmented button { border: 0; background: transparent; padding: var(--sp-2) var(--sp-5); border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 600;
   color: var(--ink-2); cursor: pointer; min-height: 36px; }
 .segmented button[aria-selected="true"] { background: var(--gel); color: #fff; box-shadow: 0 3px 10px -3px var(--accent), inset 0 1px 0 rgba(255, 255, 255, .5); }
-.field { width: 100%; padding: 14px 18px; border-radius: 16px; border: 1.5px solid var(--rule); background: var(--surface-solid);
-  font-size: 16px; transition: border-color .15s, box-shadow .15s; }
+.field { width: 100%; padding: var(--sp-4) var(--sp-4); border-radius: var(--r-md); border: 1.5px solid var(--rule); background: var(--surface-solid);
+  font-size: var(--fs-base); transition: border-color .15s, box-shadow .15s; }
 .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft), 0 0 22px -6px var(--accent-2); }
 textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
-.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; }
-.toggles { display: flex; flex-wrap: wrap; gap: 4px 22px; }
-.switch { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3) var(--sp-5); }
+.toggles { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-5); }
+.switch { display: inline-flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); cursor: pointer;
   user-select: none; position: relative; min-height: 44px; } /* the hidden input stays inside its label */
 .switch input { position: absolute; opacity: 0; pointer-events: none; }
 .switch .track { width: 46px; height: 26px; border-radius: 13px; background: var(--surface-2); border: 1px solid var(--rule);
@@ -167,11 +167,11 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 .switch input:focus-visible + .track { outline: 3px solid var(--accent-3); outline-offset: 2px; }
 
 /* gel buttons: gradient body, glossy top highlight, colored glow */
-.btn { border: 0; border-radius: 999px; padding: 13px 26px; font: 700 16px var(--font); background: var(--gel); color: var(--accent-ink);
-  cursor: pointer; transition: filter .15s, transform .1s, box-shadow .15s; display: inline-flex; align-items: center; gap: 8px;
+.btn { border: 0; border-radius: var(--r-pill); padding: var(--sp-3) var(--sp-5); font: 700 var(--fs-base) var(--font); background: var(--gel); color: var(--accent-ink);
+  cursor: pointer; transition: filter .15s, transform .1s, box-shadow .15s; display: inline-flex; align-items: center; gap: var(--sp-2);
   position: relative; overflow: hidden; min-height: 44px; text-shadow: 0 1px 1px rgba(0, 0, 0, .25);
   box-shadow: 0 6px 18px -6px var(--accent), inset 0 -2px 4px rgba(0, 0, 0, .15), inset 0 1px 0 rgba(255, 255, 255, .6); }
-.btn::before { content: ""; position: absolute; left: 8%; right: 8%; top: 2px; height: 45%; border-radius: 999px;
+.btn::before { content: ""; position: absolute; left: 8%; right: 8%; top: 2px; height: 45%; border-radius: var(--r-pill);
   background: linear-gradient(180deg, rgba(255, 255, 255, .7), rgba(255, 255, 255, .05)); pointer-events: none; }
 .btn:hover { filter: saturate(1.2) brightness(1.06); box-shadow: 0 8px 26px -6px var(--accent-2), inset 0 -2px 4px rgba(0, 0, 0, .15), inset 0 1px 0 rgba(255, 255, 255, .6); }
 .btn:active { transform: translateY(1px) scale(.98); }
@@ -179,22 +179,22 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 .btn.secondary { background: var(--surface); color: var(--accent); border: 1.5px solid var(--rule); text-shadow: none;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5); }
 .btn.secondary::before { display: none; }
-.btn.small { font-size: 13px; padding: 8px 16px; min-height: 36px; }
-.msg { color: var(--flag); font-size: 14px; font-weight: 600; margin: 0; text-align: center; }
+.btn.small { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-4); min-height: 36px; }
+.msg { color: var(--flag); font-size: var(--fs-sm); font-weight: 600; margin: 0; text-align: center; }
 .msg:empty { display: none; }
 .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent;
   animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- review list ---------- */
-.people { display: grid; gap: 12px; }
-.person { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 10px 14px; align-items: center;
-  padding: 14px 18px; border-radius: 20px; background: var(--surface); border: 1.5px solid var(--rule-soft); box-shadow: var(--shadow);
+.people { display: grid; gap: var(--sp-3); }
+.person { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3) var(--sp-4); align-items: center;
+  padding: var(--sp-4) var(--sp-4); border-radius: var(--r-lg); background: var(--surface); border: 1.5px solid var(--rule-soft); box-shadow: var(--shadow);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .person.off { opacity: .55; }
-.person .ctx { grid-column: 2 / -1; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.person .ctx { grid-column: 2 / -1; font-size: var(--fs-sm); color: var(--muted); line-height: 1.45; }
 .person .ctx b { color: var(--warn); font-weight: 700; }
-.person .field { padding: 9px 14px; font-size: 15px; border-radius: 12px; }
+.person .field { padding: var(--sp-2) var(--sp-4); font-size: var(--fs-base); border-radius: var(--r-sm); }
 .check-hit { width: 44px; height: 44px; margin: -11px; display: grid; place-items: center; cursor: pointer; border-radius: 50%; }
 .check-hit:hover .check { border-color: var(--accent); }
 .check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--rule); appearance: none; -webkit-appearance: none;
@@ -202,89 +202,90 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 .check:checked { background: var(--gel); border-color: transparent; box-shadow: 0 2px 8px -2px var(--accent); }
 .check:checked::after { content: ""; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: translateY(-1px) rotate(45deg); }
 @media (max-width: 640px) { .person { grid-template-columns: auto minmax(0, 1fr); } .person .aff { grid-column: 2; } }
-.review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 18px; }
-.hint { color: var(--muted); font-size: 14px; margin: 0; }
+.review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4); margin-top: var(--sp-4); }
+.hint { color: var(--muted); font-size: var(--fs-sm); margin: 0; }
 
 /* ---------- results ---------- */
-.results-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
+.results-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: var(--sp-5); align-items: start; }
 @media (max-width: 900px) { .results-wrap { grid-template-columns: 1fr; } }
-#results { display: grid; gap: 18px; min-width: 0; }
-.result { display: grid; gap: 14px; padding: 26px; }
+#results { display: grid; gap: var(--sp-4); min-width: 0; }
+.result { display: grid; gap: var(--sp-4); padding: var(--sp-5); }
 .result.pending { opacity: .65; }
-.r-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; }
-.r-head h3 { font: 700 23px/1.2 var(--display); letter-spacing: -.025em; margin: 0; }
-.r-head .who { color: var(--muted); font-size: 15px; margin-top: 4px; }
-.chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; padding: 6px 13px; letter-spacing: .02em;
-  border-radius: 999px; white-space: nowrap; border: 1.5px solid currentColor; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); }
+.r-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2) var(--sp-4); }
+.r-head h3 { font: 700 var(--fs-lg)/1.2 var(--display); letter-spacing: -.025em; margin: 0; }
+.r-head .who { color: var(--muted); font-size: var(--fs-base); margin-top: var(--sp-1); }
+.chip { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); font-weight: 800; padding: var(--sp-2) var(--sp-3); letter-spacing: .02em;
+  border-radius: var(--r-pill); white-space: nowrap; border: 1.5px solid currentColor; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); }
 .chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
 .chip.connections_found { color: var(--flag); background: var(--flag-soft); }
 .chip.no_confirmed_connections { color: var(--ok); background: var(--ok-soft); }
 .chip.identity_not_confirmed, .chip.error { color: var(--warn); background: var(--warn-soft); }
 .chip.checking { color: var(--muted); background: var(--surface-2); }
-.identity { font-size: 14px; color: var(--ink-2); margin: 0; }
-.cands { display: grid; gap: 8px; }
-.cand { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 14px; border-radius: 16px; background: var(--surface-2); font-size: 14px; }
+.identity { font-size: var(--fs-sm); color: var(--ink-2); margin: 0; }
+.cands { display: grid; gap: var(--sp-2); }
+.cand { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--surface-2); font-size: var(--fs-sm); }
 .cand .nm { font-weight: 700; } .cand .inst { color: var(--muted); flex: 1 1 160px; }
-.tie { border-radius: 18px; background: var(--surface-2); padding: 16px 18px 16px 22px; display: grid; gap: 10px; position: relative; overflow: hidden; }
+.tie { border-radius: var(--r-md); background: var(--surface-2); padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5); display: grid; gap: var(--sp-3); position: relative; overflow: hidden; }
 .tie::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: linear-gradient(180deg, var(--accent-2), var(--flag)); }
 .tie.other::before { background: linear-gradient(180deg, var(--muted), var(--rule)); } .tie.disc::before { background: linear-gradient(180deg, var(--accent-3), var(--ok)); }
-.tie-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
-.tie-head b { font: 700 17px var(--display); letter-spacing: -.015em; }
-.tag { font-size: 11px; font-weight: 700; color: var(--ink-2); background: var(--surface-solid); padding: 3px 9px; border-radius: 999px;
+.tie-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-3); }
+.tie-head b { font: 700 var(--fs-md) var(--display); letter-spacing: -.015em; }
+.tag { font-size: var(--fs-2xs); font-weight: 700; color: var(--ink-2); background: var(--surface-solid); padding: 3px var(--sp-2); border-radius: var(--r-pill);
   border: 1px solid var(--rule); text-transform: uppercase; letter-spacing: .05em; }
-blockquote { margin: 0; font-size: 15px; color: var(--ink-2); line-height: 1.55; }
-blockquote .src { display: block; font-size: 13px; margin-top: 4px; color: var(--muted); }
-.op { background: var(--badge); color: var(--badge-ink); border-radius: 14px; padding: 11px 13px; font-size: 14px; border: 1px dashed var(--rule); }
-.op small { display: block; opacity: .85; font-size: 12px; margin-top: 2px; }
-details { border-top: 1px dashed var(--rule); padding-top: 12px; }
-details summary { cursor: pointer; color: var(--accent); font-size: 15px; font-weight: 600; list-style: none; min-height: 44px;
+blockquote { margin: 0; font-size: var(--fs-base); color: var(--ink-2); line-height: 1.55; }
+blockquote .src { display: block; font-size: var(--fs-sm); margin-top: var(--sp-1); color: var(--muted); }
+.op { background: var(--badge); color: var(--badge-ink); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-3); font-size: var(--fs-sm); border: 1px dashed var(--rule); }
+.op small { display: block; opacity: .85; font-size: var(--fs-xs); margin-top: 2px; }
+details { border-top: 1px dashed var(--rule); padding-top: var(--sp-3); }
+details summary { cursor: pointer; color: var(--accent); font-size: var(--fs-base); font-weight: 600; list-style: none; min-height: 44px;
   display: flex; align-items: center; margin: -10px 0; }
 details summary::-webkit-details-marker { display: none; }
-details summary::after { content: " ›"; display: inline-block; transition: transform .2s; margin-left: 4px; }
+details summary::after { content: ""; width: 1em; height: 1em; margin-left: var(--sp-1); background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform var(--dur); }
 details[open] summary::after { transform: rotate(90deg); }
-details > .tie { margin-top: 10px; }
-.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+details > .tie { margin-top: var(--sp-3); }
+.empty { text-align: center; color: var(--muted); padding: var(--sp-7) 0; }
 
 /* ---------- activity ---------- */
-.activity { position: sticky; top: 72px; padding: 20px; }
-.activity h3 { font: 700 16px var(--display); margin: 0 0 4px; }
-.tally { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
-.tally span { font: 700 11px var(--mono); padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--rule); }
-#calls { display: grid; gap: 0; max-height: 62vh; overflow: auto; margin: 0 -6px; padding: 0 6px; }
-.call { padding: 9px 0; border-top: 1px dashed var(--rule); font-size: 13px; display: grid; gap: 2px; }
-.call .top { display: flex; justify-content: space-between; gap: 8px; }
-.api { font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.activity { position: sticky; top: 72px; padding: var(--sp-5); }
+.activity h3 { font: 700 var(--fs-base) var(--display); margin: 0 0 var(--sp-1); }
+.tally { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); }
+.tally span { font: 600 var(--fs-xs) var(--font); /* plain counts */ padding: var(--sp-1) var(--sp-3); border-radius: var(--r-pill); background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--rule); }
+#calls { display: grid; gap: 0; max-height: 62vh; overflow: auto; margin: 0 -6px; padding: 0 var(--sp-2); }
+.call { padding: var(--sp-2) 0; border-top: 1px dashed var(--rule); font-size: var(--fs-sm); display: grid; gap: 2px; }
+.call .top { display: flex; justify-content: space-between; gap: var(--sp-2); }
+.api { font: 700 var(--fs-2xs) var(--font); text-transform: uppercase; letter-spacing: .08em; }
 .api.tavily { color: #0a8f86; } .api.exa { color: #7a3cff; } .api.orcid { color: #5f8a00; } .api.openpayments { color: #d4560b; }
 :root[data-theme="dark"] .api.tavily { color: #3be3ff; } :root[data-theme="dark"] .api.exa { color: #c9a8ff; }
 :root[data-theme="dark"] .api.orcid { color: #c6f24e; } :root[data-theme="dark"] .api.openpayments { color: #ffb347; }
-.call .label { color: var(--ink-2); font-family: var(--mono); font-size: 11.5px; word-break: break-word; }
-.call .meta { color: var(--muted); font-size: 12px; }
+.call .label { color: var(--ink-2); font-family: var(--mono); font-size: var(--fs-2xs); word-break: break-word; }
+.call .meta { color: var(--muted); font-size: var(--fs-xs); }
 .call .meta.miss, .call .meta.error { color: var(--flag); }
 
 /* ---------- how it works / limits / footer ---------- */
-.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
-.how .card { padding: 24px; transition: transform .2s; }
-.how .card:hover { transform: translateY(-3px); }
-.how .num { font: 800 32px/1 var(--display); margin-bottom: 10px; background: var(--holo-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.how h4 { font: 700 18px/1.25 var(--display); margin: 0 0 6px; letter-spacing: -.02em; }
-.how p { margin: 0; color: var(--muted); font-size: 15px; }
-.limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
-.limits .card { padding: 24px; display: grid; gap: 8px; align-content: start; }
+.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-4); }
+.how .num { font: 800 32px/1 var(--display); margin-bottom: var(--sp-3); background: var(--holo-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.how h4 { font: 700 var(--fs-md)/1.25 var(--display); margin: 0 0 var(--sp-2); letter-spacing: -.02em; }
+.how p { margin: 0; color: var(--muted); font-size: var(--fs-base); }
+.limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-4); }
+
 .limits .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--gel);
   box-shadow: 0 4px 12px -4px var(--accent), inset 0 2px 0 rgba(255, 255, 255, .5); }
 .limits .icon svg { width: 20px; height: 20px; }
-.limits h4 { font: 700 18px/1.25 var(--display); margin: 0; letter-spacing: -.02em; }
-.limits p { margin: 0; color: var(--muted); font-size: 15px; }
+.limits h4 { font: 700 var(--fs-md)/1.25 var(--display); margin: 0; letter-spacing: -.02em; }
+.limits p { margin: 0; color: var(--muted); font-size: var(--fs-base); }
 #limits { min-height: calc(100vh - 72px); } /* the last section can scroll to the top, so its nav link lands on it */
-footer { border-top: 1px dashed var(--rule); margin-top: 32px; padding: 22px 0 40px; color: var(--muted); font-size: 12px; line-height: 1.6; }
-footer p { margin: 0 0 6px; max-width: 80ch; }
+footer { border-top: 1px dashed var(--rule); margin-top: var(--sp-6); padding: var(--sp-5) 0 var(--sp-7); color: var(--muted); font-size: var(--fs-xs); line-height: 1.6; }
+footer p { margin: 0 0 var(--sp-2); max-width: 80ch; }
 
 /* ---------- hero actions, demo badge ---------- */
-.hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 28px; }
-.kbd { font: 700 11px var(--mono); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--rule); background: var(--surface-solid); color: var(--ink-2); }
-.demo-badge { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; font-size: 13px; font-weight: 700;
-  color: var(--ink); background: var(--holo); padding: 8px 8px 8px 16px; border-radius: 999px; justify-self: center; }
-.demo-badge button { border: 0; border-radius: 999px; padding: 6px 12px; font: 700 12px var(--font); cursor: pointer;
+.hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); margin-top: var(--sp-6); }
+.kbd { font: 700 var(--fs-2xs) var(--mono); padding: 2px var(--sp-2); border-radius: var(--r-xs); border: 1px solid var(--rule); background: var(--surface-solid); color: var(--ink-2); }
+.demo-badge { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); font-weight: 700;
+  color: var(--ink); background: var(--holo); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4); border-radius: var(--r-pill); justify-self: center; }
+.demo-badge button { border: 0; border-radius: var(--r-pill); padding: var(--sp-2) var(--sp-3); font: 700 var(--fs-xs) var(--font); cursor: pointer;
   background: var(--surface-solid); color: var(--ink); min-height: 32px; }
 .form-foot { display: flex; justify-content: center; }
 
@@ -294,7 +295,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   transform: translateX(-100%); animation: sweep 1.1s ease-in-out infinite; }
 .btn.secondary.loading::after { background: linear-gradient(100deg, transparent 20%, var(--accent-soft) 50%, transparent 80%); }
 @keyframes sweep { to { transform: translateX(100%); } }
-.skel { display: block; border-radius: 10px; min-height: 12px;
+.skel { display: block; border-radius: var(--r-sm); min-height: 12px;
   background: linear-gradient(90deg, var(--surface-2) 25%, rgba(255, 255, 255, .7) 37%, var(--surface-2) 63%);
   background-size: 400% 100%; animation: skel 1.3s ease infinite; }
 :root[data-theme="dark"] .skel { background-image: linear-gradient(90deg, var(--surface-2) 25%, rgba(255, 255, 255, .12) 37%, var(--surface-2) 63%); }
@@ -302,60 +303,195 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   background-image: linear-gradient(90deg, var(--surface-2) 25%, rgba(255, 255, 255, .12) 37%, var(--surface-2) 63%); } }
 @keyframes skel { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 .skel.circle { width: 24px; height: 24px; border-radius: 50%; }
-.skel.field-sk { height: 40px; border-radius: 14px; }
-.skel.line { height: 12px; } .skel.title { height: 22px; width: 45%; } .skel.block { height: 92px; border-radius: 18px; }
-.person.skeleton .ctx { display: grid; gap: 6px; }
+.skel.field-sk { height: 40px; border-radius: var(--r-md); }
+.skel.line { height: 12px; } .skel.title { height: 22px; width: 45%; } .skel.block { height: 92px; border-radius: var(--r-md); }
+.person.skeleton .ctx { display: grid; gap: var(--sp-2); }
 
 /* ---------- progress stepper in pending cards ---------- */
-.steps { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.stp { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+.steps { display: flex; flex-wrap: wrap; gap: var(--sp-2); list-style: none; margin: 0; padding: 0; }
+.stp { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); font-weight: 700; padding: var(--sp-1) var(--sp-3); border-radius: var(--r-pill);
   border: 1.5px solid var(--rule); color: var(--muted); background: var(--surface-solid); }
 .stp::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; }
 .stp.active { color: var(--accent); border-color: var(--accent); }
 .stp.active::before { opacity: 1; animation: pulse 1s ease-in-out infinite; }
 .stp.done { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
-.stp.done::before { content: "✓"; width: auto; height: auto; background: none; opacity: 1; font-size: 11px; }
+.stp.done::before { content: "✓"; width: auto; height: auto; background: none; opacity: 1; font-size: var(--fs-2xs); }
 @keyframes pulse { 50% { transform: scale(1.6); } }
 
 /* ---------- stale-while-revalidate ---------- */
-.banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; border-radius: 16px; font-size: 14px;
-  font-weight: 600; background: var(--accent-soft); color: var(--ink); border: 1px dashed var(--rule); margin-bottom: 16px; }
+.banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); font-size: var(--fs-sm);
+  font-weight: 600; background: var(--accent-soft); color: var(--ink); border: 1px dashed var(--rule); margin-bottom: var(--sp-4); }
 .banner.fresh { background: var(--ok-soft); }
 .result.stale { opacity: .78; }
 .result.stale .chip { border-style: dashed; }
-.updating { font-size: 12px; font-weight: 700; color: var(--accent); display: inline-flex; align-items: center; gap: 6px; }
+.updating { font-size: var(--fs-xs); font-weight: 700; color: var(--accent); display: inline-flex; align-items: center; gap: var(--sp-2); }
 .updating .spinner { width: 12px; height: 12px; }
 
 /* ---------- next actions (no dead ends) ---------- */
-.card-actions { display: flex; flex-wrap: wrap; gap: 8px 10px; }
-.result-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 22px; padding: 18px;
-  border-radius: 24px; background: var(--surface); border: 1.5px solid var(--rule-soft); box-shadow: var(--shadow); }
+.card-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
+.result-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-3); margin-top: var(--sp-5); padding: var(--sp-4);
+  border-radius: var(--r-lg); background: var(--surface); border: 1.5px solid var(--rule-soft); box-shadow: var(--shadow); }
 .result-actions .hint { margin-right: auto; }
-.error-box { display: grid; gap: 12px; padding: 18px; border-radius: 20px; background: var(--flag-soft); border: 1px solid var(--flag); }
+.error-box { display: grid; gap: var(--sp-3); padding: var(--sp-4); border-radius: var(--r-lg); background: var(--flag-soft); border: 1px solid var(--flag); }
 .error-box p { margin: 0; color: var(--ink); font-weight: 600; }
-.empty-box { display: grid; gap: 12px; justify-items: start; padding: 20px; border-radius: 20px; background: var(--surface); border: 1.5px dashed var(--rule); }
+.empty-box { display: grid; gap: var(--sp-3); justify-items: start; padding: var(--sp-5); border-radius: var(--r-lg); background: var(--surface); border: 1.5px dashed var(--rule); }
 .empty-box p { margin: 0; color: var(--ink-2); }
-.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; padding: 12px 18px; border-radius: 999px;
-  font-weight: 700; font-size: 14px; color: #fff; background: var(--gel); box-shadow: 0 10px 30px -8px var(--accent); }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-pill);
+  font-weight: 700; font-size: var(--fs-sm); color: #fff; background: var(--gel); box-shadow: 0 10px 30px -8px var(--accent); }
 
 /* ---------- How it works: expandable cards with view transitions ---------- */
-.how { grid-auto-flow: dense; }
-.how .how-card { padding: 0; display: grid; }
-.how-toggle { all: unset; box-sizing: border-box; display: block; padding: 24px; cursor: pointer; border-radius: inherit; }
+.xgrid { grid-auto-flow: dense; }
+.xgrid .how-card { padding: 0; display: grid; align-content: start; }
+.limits .how-toggle { display: grid; gap: var(--sp-2); align-content: start; }
+.limits .how-card.expanded .how-toggle h4 { font-size: var(--fs-lg); }
+.how-card { transition: transform .2s; }
+.how-card:hover { transform: translateY(-3px); } .how-card.expanded:hover { transform: none; }
+.how-toggle { all: unset; box-sizing: border-box; display: block; padding: var(--sp-5); cursor: pointer; border-radius: inherit; }
 .how-toggle:focus-visible { outline: 3px solid var(--accent-3); outline-offset: -3px; }
-.how-toggle .open-hint { display: inline-flex; margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--accent); }
+.how-toggle .open-hint { display: inline-flex; margin-top: var(--sp-4); font-size: var(--fs-sm); font-weight: 700; color: var(--accent); }
 .how-card.expanded { grid-column: 1 / -1; }
 .how-card.expanded .open-hint { display: none; }
-.how-card.expanded .how-toggle { cursor: default; padding-bottom: 6px; }
-.how-card.expanded .how-toggle h4 { font-size: 24px; }
-.how-card .more { padding: 0 24px 24px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.how-card .more h5 { margin: 0 0 6px; font: 700 14px var(--display); }
-.how-card .more ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--ink-2); font-size: 15px; }
-.how-card .more .example { background: var(--surface-2); border-radius: 18px; padding: 14px 16px; font-size: 14px; color: var(--ink-2); }
-.how-card .more .example code { font: 700 12px var(--mono); }
+.how-card.expanded .how-toggle { cursor: default; padding-bottom: var(--sp-2); }
+.how-card.expanded .how-toggle h4 { font-size: var(--fs-lg); }
+.how-card .more { padding: 0 var(--sp-5) var(--sp-5); display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.how-card .more h5 { margin: 0 0 var(--sp-2); font: 700 var(--fs-sm) var(--display); }
+.how-card .more ul { margin: 0; padding-left: var(--sp-4); display: grid; gap: var(--sp-2); color: var(--ink-2); font-size: var(--fs-base); }
+.how-card .more .example { background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-4); font-size: var(--fs-sm); color: var(--ink-2); }
+.how-card .more .example code { font: 700 var(--fs-xs) var(--mono); }
 .how-card .more .close-row { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 ::view-transition-group(*) { animation-duration: .38s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
 ::view-transition-old(*), ::view-transition-new(*) { height: 100%; object-fit: cover; }
+
+/* ---------- Y2K retro backgrounds ----------
+   Layers, back to front: page wash (body) -> fixed .bg-fx (drifting iridescent orbs, starburst tile,
+   scanlines) -> hero neon perspective floor -> content on glass cards. */
+:root { --floor: rgba(122, 60, 255, .35); --floor-glow: rgba(255, 63, 180, .25); --scan: rgba(122, 60, 255, .035); }
+:root[data-theme="dark"] { --floor: rgba(255, 95, 200, .55); --floor-glow: rgba(59, 227, 255, .3); --scan: rgba(0, 0, 0, .22); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --floor: rgba(255, 95, 200, .55); --floor-glow: rgba(59, 227, 255, .3); --scan: rgba(0, 0, 0, .22); } }
+
+.bg-fx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; contain: strict; background: var(--page); }
+/* starburst tile: four-point sparkles + dots, like a 2000s wallpaper */
+.bg-fx::before { content: ""; position: absolute; inset: 0; opacity: .55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg fill='%23ff3fb4' opacity='.55'%3E%3Cpath d='M30 14l3 11 11 3-11 3-3 11-3-11-11-3 11-3z'/%3E%3C/g%3E%3Cg fill='%237a3cff' opacity='.45'%3E%3Cpath d='M128 96l2 7 7 2-7 2-2 7-2-7-7-2 7-2z'/%3E%3Ccircle cx='96' cy='30' r='1.6'/%3E%3Ccircle cx='160' cy='150' r='1.4'/%3E%3C/g%3E%3Cg fill='%2300c2e8' opacity='.5'%3E%3Ccircle cx='60' cy='140' r='1.8'/%3E%3Cpath d='M150 40l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 180px 180px; mask-image: radial-gradient(ellipse at 50% 20%, #000 20%, transparent 75%); }
+/* CRT scanlines */
+.bg-fx::after { content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(180deg, var(--scan) 0 1px, transparent 1px 3px); }
+/* drifting iridescent "CD shine" orbs */
+.orb { position: absolute; border-radius: 50%; opacity: .55; will-change: transform;
+  -webkit-mask-image: radial-gradient(closest-side, #000 25%, transparent); mask-image: radial-gradient(closest-side, #000 25%, transparent); }
+.orb.o1 { width: 46vmax; height: 46vmax; left: -14vmax; top: -12vmax; background: conic-gradient(from 20deg, #ff9be6, #c3a6ff, #8fe8ff, #b8ffd9, #ffe59a, #ff9be6);
+  animation: drift1 26s ease-in-out infinite alternate; }
+.orb.o2 { width: 38vmax; height: 38vmax; right: -12vmax; top: 18vh; background: conic-gradient(from 200deg, #8fe8ff, #ff9be6, #c3a6ff, #8fe8ff);
+  animation: drift2 32s ease-in-out infinite alternate; }
+.orb.o3 { width: 34vmax; height: 34vmax; left: 30vw; bottom: -18vmax; background: conic-gradient(from 90deg, #c3a6ff, #ffe59a, #ff9be6, #c3a6ff);
+  animation: drift3 38s ease-in-out infinite alternate; }
+:root[data-theme="dark"] .orb { opacity: .3; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .orb { opacity: .3; } }
+/* Animation budget: everything pauses while the tab is hidden, and phones/touch devices get a still background. */
+.paused .orb, .paused .hero::after, .paused .spark, .paused .hero h1 .holo { animation-play-state: paused; }
+@media (max-width: 700px), (pointer: coarse) { .bg-fx .orb, .hero::after, .hero h1 .holo, .hero .spark { animation: none; } .bg-fx::after { display: none; } } /* .bg-fx .orb outranks .orb.o1 */
+@keyframes drift1 { to { transform: translate(8vw, 10vh) rotate(160deg) scale(1.08); } }
+@keyframes drift2 { to { transform: translate(-10vw, 14vh) rotate(-140deg) scale(.92); } }
+@keyframes drift3 { to { transform: translate(-6vw, -12vh) rotate(120deg) scale(1.1); } }
+
+/* hero: neon perspective grid floor receding to a glowing horizon */
+.hero { isolation: isolate; padding-bottom: 120px; }
+.hero::before { content: ""; position: absolute; left: 0; right: 0; bottom: 34%; height: 2px; z-index: -1;
+  background: linear-gradient(90deg, transparent, var(--accent-2), var(--accent-3), var(--accent), transparent);
+  box-shadow: 0 0 24px 4px var(--floor-glow); opacity: .9; }
+.hero::after { content: ""; position: absolute; left: -50%; right: -50%; bottom: 0; height: 34%; z-index: -1;
+  background-image: linear-gradient(var(--floor) 2px, transparent 2px), linear-gradient(90deg, var(--floor) 2px, transparent 2px);
+  background-size: 64px 40px; transform: perspective(420px) rotateX(58deg); transform-origin: top center;
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, .6) 40%, transparent 100%);
+  animation: floor 3.5s linear infinite; }
+@keyframes floor { to { background-position: 0 40px; } }
+@media (max-width: 600px) { .hero { padding-bottom: 90px; } }
+
+/* holographic band behind How it works */
+#how { position: relative; }
+/* Full-bleed band: border-image outset paints past the container without adding scrollable width. */
+#how { border-image: linear-gradient(120deg, rgba(255, 155, 230, .22), rgba(143, 232, 255, .22) 45%, rgba(195, 166, 255, .22)) fill 0 / / 0 100vw; }
+:root[data-theme="dark"] #how { border-image: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)) fill 0 / / 0 100vw; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #how {
+  border-image: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)) fill 0 / / 0 100vw; } }
+body { overflow-x: clip; } /* belt and braces against sideways scroll; clip keeps the sticky nav working */
+@supports not (overflow: clip) { body { overflow-x: hidden; } } /* body overflow propagates to the viewport, so sticky still works */
+
+/* ---------- reliability ---------- */
+.rel { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-2xs); font-weight: 800; padding: 3px var(--sp-3); border-radius: var(--r-pill);
+  letter-spacing: .03em; margin-left: auto; border: 1.5px solid currentColor; white-space: nowrap; }
+.rel::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.rel.strong { color: var(--ok); background: var(--ok-soft); }
+.rel.moderate { color: var(--warn); background: var(--warn-soft); }
+.rel.weak { color: var(--flag); background: var(--flag-soft); }
+.coverage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.coverage .rel { margin-left: 0; }
+details.why { border-top: 0; padding-top: 0; }
+details.why summary { min-height: 32px; margin: 0; font-size: var(--fs-sm); }
+.factors { list-style: none; margin: var(--sp-1) 0 var(--sp-2); padding: 0; display: grid; gap: var(--sp-2); }
+.factors li { display: grid; grid-template-columns: 110px 90px 1fr; gap: var(--sp-3); align-items: center; font-size: var(--fs-sm); }
+.factors .fname { font-weight: 700; color: var(--ink-2); }
+.factors .fbar { height: 8px; border-radius: var(--r-pill); background: var(--surface-solid); border: 1px solid var(--rule); overflow: hidden; }
+.factors .fbar i { display: block; height: 100%; background: var(--holo-text); }
+.factors .fnote { color: var(--muted); }
+@media (max-width: 520px) { .factors li { grid-template-columns: 1fr 70px; } .factors .fnote { grid-column: 1 / -1; } }
+
+/* ---------- icons ---------- */
+.i { width: var(--icon); height: var(--icon); flex: none; fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; vertical-align: -.2em; }
+.i.fill { fill: currentColor; stroke-width: 1.5; }
+.btn .i { margin-inline-start: -2px; }           /* optical: a leading icon reads as extra padding */
+
+/* ---------- hero: the check itself is the main feature, beside the product it produces ---------- */
+.hero { text-align: left; padding: var(--sp-7) 22px var(--sp-8); }
+.hero-grid { max-width: 1076px; margin: 0 auto; /* = the .container content width, so the hero lines up with the nav and sections */ display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr);
+  gap: var(--sp-7); align-items: center; }
+.hero h1 { margin-left: -.04em; }                 /* optical: the display face's side bearing, so the W lines up with the text below */
+.hero .sub { margin: var(--sp-4) 0 var(--sp-5); max-width: 34em; }
+.hero .input-card { max-width: none; margin: 0; padding: var(--sp-5); gap: var(--sp-4); }
+.field-lg { font-size: var(--fs-md); padding: var(--sp-4) var(--sp-4); min-height: 58px; }
+textarea.field-lg { min-height: 200px; }
+.controls .actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.preview { margin: 0; display: grid; gap: var(--sp-3); position: relative; }
+.preview-cap { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); display: inline-flex; align-items: center; gap: var(--sp-2); }
+.preview-cap .i { color: var(--accent-2); }
+.preview-stack { position: relative; transform: perspective(1400px) rotateY(-7deg) rotateX(2deg); transform-origin: left center;
+  transition: transform .5s var(--ease); }
+.preview:hover .preview-stack { transform: none; }
+.preview-stack .result { padding: var(--sp-5); }
+.preview-stack .mini-calls { position: absolute; right: calc(var(--sp-3) * -1); bottom: calc(var(--sp-8) * -1);
+  width: 58%; padding: var(--sp-3) var(--sp-4); display: grid; gap: 0; }
+.preview-run { justify-self: start; margin-top: calc(var(--sp-8) + var(--sp-3)); }
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: 1fr; gap: var(--sp-6); }
+  .preview-stack { transform: none; }
+  .preview-stack .mini-calls { position: static; width: auto; margin-top: var(--sp-3); }
+  .preview-run { margin-top: 0; }
+}
+@media (max-width: 600px) { .hero { padding: var(--sp-6) 16px var(--sp-7); } .hero .input-card { padding: var(--sp-4); } }
+
+/* Headline: two deliberate lines ("Who pays" / "the experts?"), never broken mid-phrase; each line gets its own
+   chrome or iridescent fill, so the chrome's bright band always crosses its own line's centre. */
+.hero h1 { font-size: var(--fs-display); background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--ink); }
+.hero h1 .line { white-space: nowrap; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.hero h1 .chrome { background: var(--chrome); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* ---------- typography: wrapping and optical alignment ---------- */
+h1, h2, h3, h4, h5 { text-wrap: balance; }
+p, li, blockquote, .hint { text-wrap: pretty; }
+.hero h1 { hyphens: manual; }
+blockquote { text-indent: -.42em; }               /* hang the opening quote mark so the text edge stays straight */
+.how .num { margin-left: -.06em; }                /* round numerals overshoot: pull them back onto the text edge */
+.step { padding-top: 1px; }                       /* the display face sits high in its box; nudge numerals to look centred */
+.brand svg, .limits .icon, .step { width: 40px; height: 40px; } /* circles read smaller than squares: give them ~6% more */
+.brand svg { width: 32px; height: 32px; }
+.check:checked::after { transform: translate(.5px, -1px) rotate(45deg); }  /* tick's visual centre is low and left */
+#icon-moon { transform: translate(1px, -.5px); }  /* the crescent's mass sits left: shift so it looks centred */
+@supports (text-box: trim-both cap alphabetic) {
+  .btn, .chip, .rel, .tag, .step, .segmented button { text-box: trim-both cap alphabetic; }  /* centre on cap height, not line box */
+}
 
 /* Continuous (squircle) corners on every rounded rectangle and pill, where supported.
    Squircles look tighter than circular arcs at the same radius, so radii are bumped slightly.
@@ -363,7 +499,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 @supports (corner-shape: squircle) {
   .card, .person, .tie, .cand, .op, .field, .eyebrow, .segmented, .segmented button, .btn, .chip, .tag,
   .tally span, .switch .track, .nav-links a.active::after, .input-card::before, .banner, .error-box, .empty-box,
-  .result-actions, .toast, .stp, .demo-badge, .demo-badge button, .kbd, .skel:not(.circle), .how-card .more .example {
+  .result-actions, .toast, .stp, .demo-badge, .demo-badge button, .kbd, .skel:not(.circle), .how-card .more .example, .rel, .factors .fbar {
     corner-shape: squircle;
   }
   .card { border-radius: 32px; } .person { border-radius: 26px; } .tie { border-radius: 24px; }
@@ -375,6 +511,20 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <!-- One icon set: 24px grid, 2px round strokes, currentColor. Use: <svg class="i"><use href="#i-name"/></svg> -->
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5l2 6.5 6.5 2-6.5 2-2 6.5-2-6.5-6.5-2 6.5-2z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-retry" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></symbol>
+</svg>
+<div class="bg-fx" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
 
 <nav class="nav" aria-label="Main">
   <div class="nav-in">
@@ -391,46 +541,68 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 </nav>
 
 <header class="hero" id="top">
-  <span class="spark s1" aria-hidden="true">✦</span><span class="spark s2" aria-hidden="true">✦</span>
-  <span class="spark s3" aria-hidden="true">✧</span><span class="spark s4" aria-hidden="true">✦</span>
-  <p class="eyebrow">For health news</p>
-  <h1>Who pays <span class="holo">the experts?</span></h1>
-  <p class="sub">Paste an article. Conflict Check confirms who each quoted expert is, then finds the funding, consulting and board ties the story didn't mention, with a source for every one.</p>
-  <div class="hero-cta">
-    <button class="btn" id="demo-btn" type="button">✦ Try the live demo</button>
-    <a class="btn secondary" href="#check">Check an article</a>
-  </div>
-</header>
-
-<div class="bg-band" id="check">
-  <div class="container">
-    <form id="f" class="card input-card">
-      <div class="demo-badge" id="demo-badge" hidden>✦ Demo mode · fictional people and companies, no network
-        <button type="button" data-act="exit-demo">Exit demo</button></div>
+  <svg class="spark s1 i fill" aria-hidden="true"><use href="#i-sparkle"/></svg>
+  <svg class="spark s2 i fill" aria-hidden="true"><use href="#i-sparkle"/></svg>
+  <svg class="spark s3 i fill" aria-hidden="true"><use href="#i-sparkle"/></svg>
+  <svg class="spark s4 i fill" aria-hidden="true"><use href="#i-sparkle"/></svg>
+  <div class="hero-grid">
+    <div class="hero-main" id="check">
+      <h1><span class="line chrome">Who pays</span> <span class="line holo">the experts?</span></h1>
+      <p class="sub">Paste a health news article. Conflict Check confirms who each quoted expert is, then finds the funding, consulting and board ties the story didn't mention, with a source for every one.</p>
+    <form id="f" class="card input-card" aria-label="Check an article">
+      <div class="demo-badge" id="demo-badge" hidden><svg class="i fill" aria-hidden="true"><use href="#i-sparkle"/></svg>Demo · fictional data
+        <button type="button" data-act="exit-demo"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg>Exit</button></div>
       <div class="segmented" role="tablist" aria-label="Article input">
         <button type="button" role="tab" id="tab-url" aria-selected="true" aria-controls="url">Link</button>
         <button type="button" role="tab" id="tab-text" aria-selected="false" aria-controls="text">Paste text</button>
       </div>
-      <input class="field" type="url" id="url" placeholder="https://news-site.com/health/article" aria-label="Article link">
-      <textarea class="field" id="text" placeholder="Paste the full article text here" aria-label="Article text" hidden></textarea>
+      <input class="field field-lg" type="url" id="url" placeholder="https://news-site.com/health/article" aria-label="Article link">
+      <textarea class="field field-lg" id="text" placeholder="Paste the full article text here" aria-label="Article text" hidden></textarea>
       <div class="controls">
         <div class="toggles">
           <label class="switch"><input type="checkbox" id="replay"><span class="track"></span>Replay mode</label>
           <label class="switch"><input type="checkbox" id="mask"><span class="track"></span>Mask names</label>
         </div>
-        <button class="btn" id="find" type="submit">Find experts</button>
+        <div class="actions">
+          <button class="btn secondary" id="demo-btn" type="button"><svg class="i fill" aria-hidden="true"><use href="#i-play"/></svg>Try the demo</button>
+          <button class="btn" id="find" type="submit"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg>Find experts</button>
+        </div>
       </div>
-      <p class="hint form-foot">Tip: press <span class="kbd">Ctrl</span>&nbsp;+&nbsp;<span class="kbd">Enter</span> to search.</p>
       <p class="msg" id="msg" role="alert"></p>
     </form>
+    </div>
+      <figure class="preview" aria-label="Example result with fictional people">
+        <figcaption class="preview-cap"><svg class="i fill" aria-hidden="true"><use href="#i-sparkle"/></svg>What you get · example with fictional people</figcaption>
+        <div class="preview-stack" inert>
+          <article class="card result">
+            <div class="r-head"><div><h3>Maren Okafor</h3><div class="who">Cardiologist, Lakeside University</div></div>
+              <span class="chip connections_found">Connections not mentioned</span></div>
+            <div class="tie"><div class="tie-head"><b>Veltrix Pharmaceuticals</b><span class="tag">consulting</span><span class="rel strong">Strong · 100</span></div>
+              <blockquote>“M.O. reports consulting fees from Veltrix Pharmaceuticals.”<span class="src">Journal of Cardiac Care · 2025 · via exa</span></blockquote>
+              <div class="op"><b>$51,072.80</b> in 8 payments from Veltrix to a cardiologist in Lakeside, MN.<small>CMS Open Payments · name match</small></div>
+            </div>
+            <div class="coverage"><span class="rel strong">Coverage Strong · 83</span><span class="hint">Both Exa and Tavily found pages about her.</span></div>
+          </article>
+          <div class="card mini-calls" aria-hidden="true">
+            <div class="call"><div class="top"><span class="api orcid">orcid</span><span class="meta">live · 412 ms</span></div><span class="label">Maren Okafor @ Lakeside University</span></div>
+            <div class="call"><div class="top"><span class="api exa">exa</span><span class="meta">live · 830 ms</span></div><span class="label">"Maren Okafor" competing interests</span></div>
+            <div class="call"><div class="top"><span class="api openpayments">openpayments</span><span class="meta">live · 650 ms</span></div><span class="label">Okafor &lt;- Veltrix</span></div>
+          </div>
+        </div>
+        <button class="btn preview-run" type="button" data-act="demo"><svg class="i fill" aria-hidden="true"><use href="#i-play"/></svg>Run this example live</button>
+      </figure>
+  </div>
+</header>
 
+<div class="bg-band">
+  <div class="container">
     <section class="block" id="review" hidden aria-labelledby="review-h">
       <div class="section-head"><span class="step">1</span><h2 id="review-h">Review the experts.</h2></div>
       <p class="lead">Fix names and fill in affiliations before searching. Identity is confirmed against the affiliation. Up to 5 are checked.</p>
       <div class="people" id="rows" aria-busy="false"></div>
       <div class="review-actions" id="review-actions">
         <button class="btn" id="check-btn" type="button">Check selected experts</button>
-        <button class="btn secondary" id="add" type="button">+ Add an expert</button>
+        <button class="btn secondary" id="add" type="button"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Add an expert</button>
         <span class="hint" id="count"></span>
       </div>
     </section>
@@ -440,35 +612,31 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 <div class="container">
   <section class="block" id="results-block" hidden aria-labelledby="results-h">
     <div class="section-head"><span class="step">2</span><h2 id="results-h">Results.</h2></div>
-    <p class="lead" id="scope"></p>
     <div class="banner" id="banner" role="status" hidden></div>
     <div class="results-wrap">
       <main id="results" aria-live="polite"></main>
       <aside class="card activity" aria-label="API activity">
         <h3>API activity</h3>
-        <p class="hint">Every Tavily, Exa, ORCID and Open Payments call, as it happens.</p>
         <div class="tally" id="tally"></div>
         <div id="calls"></div>
       </aside>
     </div>
     <div class="result-actions" id="result-actions" hidden>
-      <span class="hint">Done. What next?</span>
-      <button class="btn secondary small" type="button" data-act="edit-experts">Edit experts</button>
-      <button class="btn secondary small" type="button" data-act="copy">Copy summary</button>
-      <button class="btn secondary small" type="button" data-act="download">Download report</button>
-      <button class="btn small" type="button" data-act="new">Check another article</button>
+      <button class="btn secondary small" type="button" data-act="edit-experts"><svg class="i" aria-hidden="true"><use href="#i-edit"/></svg>Edit experts</button>
+      <button class="btn secondary small" type="button" data-act="copy"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>Copy summary</button>
+      <button class="btn secondary small" type="button" data-act="download"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Download report</button>
+      <button class="btn small" type="button" data-act="new"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg>Check another article</button>
     </div>
   </section>
 
   <section class="block" id="how" aria-labelledby="how-h">
     <div class="section-head"><h2 id="how-h">How it works.</h2></div>
-    <p class="lead">Click a step to see exactly what happens.</p>
-    <div class="how" id="how-grid">
+    <div class="how xgrid" id="how-grid">
       <article class="card how-card" style="view-transition-name: how-1">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-1">
           <div class="num">01</div><h4>Find the experts</h4>
           <p>Quoted experts, their roles and affiliations are pulled from the article. Spokespeople and officials are set aside.</p>
-          <span class="open-hint">Read more ›</span></button>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
         <div class="more" id="how-more-1" hidden>
           <div><h5>What it looks for</h5><ul>
             <li>Attribution: “said X”, “X says”, “according to X of Y”.</li>
@@ -478,14 +646,14 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
             <li>Spokespeople, CEOs, presidents and officials. They aren't independent experts, so they start unticked.</li>
             <li>Organizations that look like names (“the nonprofit Public Citizen”).</li>
             <li>You can edit any name or affiliation, add someone it missed, and check up to five.</li></ul></div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
       <article class="card how-card" style="view-transition-name: how-2">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-2">
           <div class="num">02</div><h4>Confirm who they are</h4>
           <p>ORCID must return exactly one match for the name and affiliation, or you pick the right record. No match, no search.</p>
-          <span class="open-hint">Read more ›</span></button>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
         <div class="more" id="how-more-2" hidden>
           <div><h5>The rule</h5><ul>
             <li>Search ORCID, the researcher ID registry, for the name plus the affiliation from the article.</li>
@@ -495,14 +663,14 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
             <li>Candidate records are listed with their institutions.</li>
             <li>“This is them” re-checks the record's surname against the expert before searching.</li>
             <li>Why so strict? A common name matched to the wrong person is a false accusation.</li></ul></div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
       <article class="card how-card" style="view-transition-name: how-3">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-3">
           <div class="num">03</div><h4>Find disclosed ties</h4>
           <p>Exa searches research papers and Tavily searches the web. A tie counts only if a page names both the person and the organization.</p>
-          <span class="open-hint">Read more ›</span></button>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
         <div class="more" id="how-more-3" hidden>
           <div><h5>Where it looks</h5><ul>
             <li>Exa research-paper search for the expert's own conflict-of-interest statements.</li>
@@ -512,23 +680,23 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
             <li>In “J.L. reports grants from A; M.O. reports fees from B”, only B belongs to M.O.</li>
             <li>“Declares no competing interests” is never a tie. Every quote is checked against its page.</li></ul></div>
           <div class="example"><b>Then it sorts them.</b> Ties to companies named in the story come first. Ties the article already disclosed are folded away. Spellings like “AstraZeneca” and “Astra Zeneca” are merged.</div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
       <article class="card how-card" style="view-transition-name: how-4">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-4">
           <div class="num">04</div><h4>Check the money</h4>
-          <p>CMS Open Payments confirms payments from the same company to a physician with that name, shown with location so you can judge.</p>
-          <span class="open-hint">Read more ›</span></button>
+          <p>CMS Open Payments confirms payments from the same company to a clinician with that name, shown with location so you can judge.</p>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
         <div class="more" id="how-more-4" hidden>
           <div><h5>What it adds</h5><ul>
-            <li>For each tie already found, it looks up 2024–2025 payments from that company to a physician with that name.</li>
+            <li>For each tie already found, it looks up <span data-op-years>2024 and 2025</span> payments from that company to a clinician with that name.<span data-op-off hidden> (Turned off on this server.)</span></li>
             <li>The badge shows total, number of payments, payment types, city, state and NPI.</li></ul></div>
           <div><h5>What it won't do</h5><ul>
             <li>Create a tie on its own. It only supports one found in papers or bios.</li>
-            <li>Show a badge when several physicians with that name were paid. That's ambiguous, so it's withheld.</li>
+            <li>Show a badge when several clinicians with that name were paid. That's ambiguous, so it's withheld.</li>
             <li>Prove identity. Open Payments lists location, not employer, so check the city.</li></ul></div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
     </div>
@@ -537,15 +705,71 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   <section class="block" id="limits" aria-labelledby="limits-h">
     <div class="section-head"><h2 id="limits-h">What it can't do.</h2></div>
     <p class="lead">Conflict Check is built to never accuse the wrong person. That means it says less, not more, when the evidence is thin.</p>
-    <div class="limits">
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></div>
-        <h4>Ties never disclosed</h4><p>It finds connections disclosed somewhere else, in papers, bios and payment records. A tie that was never written down anywhere can't be found.</p></div>
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8h5M19.5 5.5v5"/></svg></div>
-        <h4>People with common names</h4><p>If ORCID can't single out one person, nothing is searched until you pick the right record. Experts without a research record often can't be confirmed.</p></div>
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5S9.2 10 12 10s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></div>
-        <h4>Payment records</h4><p>CMS Open Payments covers US physicians only, and matches by name and location, not employer. It's shown as supporting evidence, never as proof.</p></div>
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
-        <h4>Up to five experts</h4><p>Each article is limited to five experts to keep searches focused. “No confirmed connections” is a normal, honest result.</p></div>
+    <div class="limits xgrid" id="limits-grid">
+      <article class="card how-card" style="view-transition-name: lim-1">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-1">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></div>
+          <h4>Ties never disclosed</h4><p>It finds connections disclosed somewhere else, in papers, bios and payment records. A tie that was never written down anywhere can't be found.</p>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
+        <div class="more" id="lim-more-1" hidden>
+          <div><h5>What it can miss</h5><ul>
+            <li>Ties that were never disclosed in any paper, bio or filing.</li>
+            <li>Disclosures behind paywalls, in PDFs search can't read, or on pages search doesn't index.</li>
+            <li>Disclosures written in unusual ways, such as a table instead of sentences.</li></ul></div>
+          <div><h5>How to read a clean result</h5><ul>
+            <li>“No confirmed connections” means no evidence was found. It doesn't prove there are no ties.</li>
+            <li>For an important story, check the expert's own recent papers and the journal's disclosure forms too.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: lim-2">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-2">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8h5M19.5 5.5v5"/></svg></div>
+          <h4>People with common names</h4><p>If ORCID can't single out one person, nothing is searched until you pick the right record. Experts without a research record often can't be confirmed.</p>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
+        <div class="more" id="lim-more-2" hidden>
+          <div><h5>Who is hard to confirm</h5><ul>
+            <li>Common names, where several researchers share the name and affiliation.</li>
+            <li>Clinicians, officials and industry staff, who often have no ORCID record at all.</li>
+            <li>Experts quoted without an affiliation, so there's nothing to match against.</li></ul></div>
+          <div><h5>What you can do</h5><ul>
+            <li>Fill in the affiliation in the review step, then check again.</li>
+            <li>Pick the right person from the candidates. The record's surname is re-checked first.</li>
+            <li>If no record fits, the expert stays “Identity not confirmed”. That's on purpose.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: lim-3">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-3">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5S9.2 10 12 10s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></div>
+          <h4>Payment records</h4><p>CMS Open Payments only covers US clinicians, and matches by name and location, not employer. It's shown as supporting evidence, never as proof.</p>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
+        <div class="more" id="lim-more-3" hidden>
+          <div><h5>What the data covers</h5><ul>
+            <li>Payments from drug and device makers to US physicians, teaching hospitals and, since 2021, some other prescribers such as nurse practitioners and physician assistants.</li>
+            <li><span data-op-on>Conflict Check looks at the <span data-op-years>2024 and 2025</span> general payments.</span><span data-op-off hidden>Open Payments badges are turned off on this server.</span> Companies report these payments, and the figures can be disputed.</li>
+            <li>Researchers outside the US, and payments from non-manufacturers, aren't in it.</li></ul></div>
+          <div><h5>Why it's only a badge</h5><ul>
+            <li>Records list name, city and state, not employer, so a name match can be a different person.</li>
+            <li>The badge only appears on a tie already found in papers or bios, and it's withheld when several physicians match.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: lim-4">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-4">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
+          <h4>Up to five experts</h4><p>Each article is limited to five experts to keep searches focused. “No confirmed connections” is a normal, honest result.</p>
+          <span class="open-hint">Read more <svg class="i" aria-hidden="true"><use href="#i-chevron"/></svg></span></button>
+        <div class="more" id="lim-more-4" hidden>
+          <div><h5>Why five</h5><ul>
+            <li>Each expert takes several searches. Five keeps a check quick and within free API limits.</li>
+            <li>Most health stories quote two to four outside experts.</li></ul></div>
+          <div><h5>Checking more</h5><ul>
+            <li>In the review step, untick some experts and tick others, then check again.</li>
+            <li>Spokespeople and officials start unticked because they aren't independent experts. You can still tick them.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
     </div>
   </section>
 
@@ -592,7 +816,19 @@ media.addEventListener?.("change", paintThemeButton);
 paintThemeButton();
 
 /* ---------- config: stale-while-revalidate ---------- */
-function applyConfig(c) { if (c && !$("replay").dataset.touched) $("replay").checked = !!c.replay_default; }
+function applyConfig(c) {
+  if (!c) return;
+  if (!$("replay").dataset.touched) $("replay").checked = !!c.replay_default;
+  const op = c.open_payments;  // the Open Payments copy follows the server's configuration
+  if (op) {
+    const years = op.years || [], list = years.length > 1 ? years.slice(0, -1).join(", ") + " and " + years[years.length - 1] : years.join("");
+    document.querySelectorAll("[data-op-years]").forEach(el => { if (list) el.textContent = list; });
+    document.querySelectorAll("[data-op-on]").forEach(el => el.hidden = !op.enabled);
+    document.querySelectorAll("[data-op-off]").forEach(el => el.hidden = !!op.enabled);
+  }
+}
+// Animation budget: pause the decorative background while the tab is hidden.
+document.addEventListener("visibilitychange", () => document.documentElement.classList.toggle("paused", document.hidden));
 applyConfig(store.get("cc-config"));                       // stale: instant
 fetch("/api/config").then(r => r.json()).then(c => { store.set("cc-config", c); applyConfig(c); }).catch(() => {}); // revalidate
 $("replay").addEventListener("change", () => { $("replay").dataset.touched = "1"; });
@@ -622,7 +858,7 @@ function resetChecks() {
   state.gen++;  // any check still streaming stops updating the page
   Object.assign(state, { article: null, experts: [], results: {}, calls: [], swrKey: null });
   for (const id of ["review", "results-block", "result-actions", "banner"]) $(id).hidden = true;
-  $("rows").innerHTML = ""; $("results").innerHTML = ""; $("scope").textContent = ""; renderCalls();
+  $("rows").innerHTML = ""; $("results").innerHTML = ""; renderCalls();
 }
 function exitDemo(message) {
   if (!state.demo) return;
@@ -690,7 +926,7 @@ async function findExperts() {
     state.article = { url: data.article.url, text: data.text, demo };
     state.experts = data.experts.map(e => ({ ...e }));
     state.results = {}; state.calls = data.calls.slice();
-    renderReview(); renderCalls(); $("results").innerHTML = ""; $("scope").textContent = "";
+    renderReview(); renderCalls(); $("results").innerHTML = "";
     $("results-block").hidden = true; $("result-actions").hidden = true; $("banner").hidden = true;
   } catch (e) {
     $("rows").innerHTML = errorBox(e.message, "retry-find"); $("review-actions").hidden = true;
@@ -712,8 +948,8 @@ function renderReview() {
     <input class="field aff" type="text" data-i="${i}" data-k="affiliation" value="${esc(e.affiliation || "")}" placeholder="Affiliation, e.g. Lakeside University" aria-label="Affiliation">
     <div class="ctx">${e.kind === "other" ? `<b>Not an independent expert${e.role ? " (" + esc(e.role) + ")" : ""}.</b> ` : ""}${e.added ? "Added by you." : mask(e.context)}</div>
   </div>`).join("") : `<div class="empty-box"><p>No quoted experts were found in this article. Add one by hand, or try the demo article.</p>
-    <div class="card-actions"><button class="btn small" type="button" data-act="add">+ Add an expert</button>
-    <button class="btn secondary small" type="button" data-act="demo">Try the demo article</button></div></div>`;
+    <div class="card-actions"><button class="btn small" type="button" data-act="add"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Add an expert</button>
+    <button class="btn secondary small" type="button" data-act="demo"><svg class="i fill" aria-hidden="true"><use href="#i-play"/></svg>Try the demo article</button></div></div>`;
   updateCount();
 }
 $("rows").addEventListener("input", ev => {
@@ -810,7 +1046,6 @@ function handle(ev, run) {
   }
   else if (ev.type === "expert") { state.results[ev.expert.name] = ev.expert; run.idx++; updateCard(ev.expert.name); }
   else if (ev.type === "done") {
-    $("scope").textContent = ev.result.scope_note;
     saveResult();
     if (run.full) showBanner(state.swrKey && $("banner").textContent ? "Up to date." : "", true);
     $("result-actions").hidden = false;
@@ -841,37 +1076,43 @@ $("results").addEventListener("click", ev => {
 document.addEventListener("click", ev => {
   const b = ev.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act;
-  if (act === "retry-find") findExperts();
-  else if (act === "replay-off") { $("replay").checked = false; $("replay").dataset.touched = "1"; findExperts(); }
+  if (act === "retry-find") withBusy(b, "Searching", findExperts);
+  else if (act === "replay-off") { $("replay").checked = false; $("replay").dataset.touched = "1"; withBusy(b, "Searching", findExperts); }
   else if (act === "demo") startDemo(b);
   else if (act === "exit-demo") { exitDemo("Demo mode off. Demo results cleared."); $("text").value = ""; setMode("url"); }
   else if (act === "add") addExpert();
   else if (act === "edit-experts") $("review").scrollIntoView({ behavior: smooth(), block: "start" });
-  else if (act === "copy") copySummary();
+  else if (act === "copy") withBusy(b, "Copying", copySummary);
   else if (act === "download") downloadReport();
   else if (act === "new") {
     $("check").scrollIntoView({ behavior: smooth(), block: "start" });
     const input = state.mode === "url" ? $("url") : $("text");
     input.focus({ preventScroll: true }); input.select();
   }
-  else if (act === "close-how") toggleHow(b.closest(".how-card"), false);
+  else if (act === "close-card") toggleHow(b.closest(".how-card"), false);
 });
 
 function errorBox(msg, retryAct) {
   const fixes = [];
   if (/replay/i.test(msg)) fixes.push(`<button class="btn secondary small" type="button" data-act="replay-off">Turn off replay mode</button>`);
-  if (/API_KEY|not set/i.test(msg)) fixes.push(`<button class="btn secondary small" type="button" data-act="demo">Use the demo instead</button>`);
+  if (/API_KEY|not set/i.test(msg)) fixes.push(`<button class="btn secondary small" type="button" data-act="demo"><svg class="i fill" aria-hidden="true"><use href="#i-play"/></svg>Use the demo instead</button>`);
   return `<div class="error-box" role="alert"><p>${esc(msg)}</p><div class="card-actions">
-    <button class="btn small" type="button" data-act="${retryAct}">Try again</button>${fixes.join("")}</div></div>`;
+    <button class="btn small" type="button" data-act="${retryAct}"><svg class="i" aria-hidden="true"><use href="#i-retry"/></svg>Try again</button>${fixes.join("")}</div></div>`;
 }
 
 function summaryText() {
   const lines = [`Conflict Check: ${state.article?.url || "pasted article"}${state.article?.demo ? " (demo, fictional data)" : ""}`, ""];
   for (const e of Object.values(state.results)) {
     lines.push(`${e.name}${e.affiliation ? ", " + e.affiliation : ""}: ${STATUS[e.status] || e.status}`);
-    for (const t of e.ties || []) lines.push(`  - ${t.org} (${t.category || t.relation}; ${t.related_to_story ? "named in this story" : "not named in this story"}): ${t.evidence[0]?.url || ""}`);
+    for (const t of e.ties || []) lines.push(`  - ${t.org} (${t.category || t.relation}; ${t.related_to_story ? "named in this story" : "not named in this story"}${t.reliability ? `; ${t.reliability.label} ${t.reliability.score}/100` : ""}): ${t.evidence[0]?.url || ""}`);
+    if (e.coverage) lines.push(`  Coverage: ${e.coverage.label} ${e.coverage.score}/100`);
   }
   return maskText(lines.join("\n"));  // masks names in text and in links (".../people/maren-okafor")
+}
+// Any button whose action takes time shows it: spinner, shine and aria-busy until the work settles.
+async function withBusy(btn, label, work) {
+  busy(btn, label);
+  try { await work(); } finally { if (btn.isConnected) busy(btn); }
 }
 async function copySummary() {
   try { await navigator.clipboard.writeText(summaryText()); toast("Summary copied."); }
@@ -890,10 +1131,13 @@ function downloadReport() {
   toast(masked ? "Masked report downloaded." : "Report downloaded.");
 }
 
-/* ---------- How it works: expand with a view transition ---------- */
+/* ---------- expandable cards (How it works, Limits): view transitions ---------- */
+// One open card per section; each section (.xgrid) is independent.
+let lastOpened = null;  // Esc closes this one when focus isn't inside a card
 function toggleHow(card, open) {
+  if (open) lastOpened = card;
   const apply = () => {
-    for (const c of document.querySelectorAll(".how-card")) {
+    for (const c of card.closest(".xgrid").querySelectorAll(".how-card")) {
       const on = c === card && open;
       c.classList.toggle("expanded", on);
       c.querySelector(".how-toggle").setAttribute("aria-expanded", on);
@@ -914,14 +1158,16 @@ function focusHow(card, open) {
   const a = document.activeElement;
   if (!a || a === document.body || card.contains(a)) card.querySelector(".how-toggle").focus({ preventScroll: true });
 }
-$("how-grid").addEventListener("click", ev => {
+for (const grid of document.querySelectorAll(".xgrid")) grid.addEventListener("click", ev => {
   const t = ev.target.closest(".how-toggle"); if (!t) return;
   const card = t.closest(".how-card"); toggleHow(card, !card.classList.contains("expanded"));
 });
 document.addEventListener("keydown", ev => {
   if (ev.key !== "Escape") return;
   if (ev.target.closest?.("input, textarea, select, [contenteditable]")) return;  // Esc while typing isn't for the cards
-  const open = document.activeElement?.closest?.(".how-card.expanded") || document.querySelector(".how-card.expanded");
+  // Close the card you're in; otherwise the one opened most recently.
+  const open = document.activeElement?.closest?.(".how-card.expanded") || lastOpened?.closest(".how-card.expanded")
+    || document.querySelector(".how-card.expanded");
   if (open) toggleHow(open, false);
 });
 
@@ -929,14 +1175,55 @@ document.addEventListener("keydown", ev => {
 function badge(op) {
   if (!op) return "";
   if (op.status !== "name_match") return `<div class="op"><small>CMS Open Payments: ${esc(op.note)}</small></div>`;
-  return `<div class="op"><b>$${op.total_usd.toLocaleString()}</b> in ${op.payments} payment${op.payments === 1 ? "" : "s"} from ${esc(op.payer)}
+  return `<div class="op"><b>$${op.total_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> in ${op.payments} payment${op.payments === 1 ? "" : "s"} from ${esc(op.payer)}
     (${esc(op.years.join(", "))}${op.top_natures.length ? "; " + esc(op.top_natures.join(", ")) : ""}) to a ${esc(op.specialty || "")} physician in ${esc(op.location)}, NPI ${esc(op.npi)}.
     <small>CMS Open Payments. ${esc(op.note)}</small></div>`;
 }
+const FACTOR_NAMES = { identity: "Identity", attribution: "Attribution", source: "Source", corroboration: "Corroboration",
+  wording: "Wording", recency: "Recency", organization: "Organization", pages: "Pages checked", channels: "Search channels" };
+// kind: "tie" (how much to trust a connection) or "coverage" (how thorough the search was).
+const REL_TEXT = {
+  tie: { title: "Reliability", explain: "How much to trust this connection, from 0 to 100. Strong is 80+, Moderate 60–79. Equal scores are ordered by more websites, then better source, then the more serious kind of tie." },
+  coverage: { title: "Coverage", explain: "How thorough the search was, from 0 to 100: identity, pages that mention them, and which searches found them. Strong is 80+, Moderate 60–79." },
+};
+function relPill(r, kind = "tie") {
+  if (!r || r.score == null) return "";
+  const t = REL_TEXT[kind];
+  return `<span class="rel ${esc(r.label.toLowerCase())}" title="${t.title} ${r.score}/100">${kind === "coverage" ? "Coverage " : ""}${esc(r.label)} · ${r.score}</span>`;
+}
+function relWhy(r, kind = "tie") {
+  if (!r || !r.factors || !r.factors.length) return "";
+  const rows = r.factors.map(f => `<li><span class="fname">${esc(FACTOR_NAMES[f.key] || f.key)}</span>
+    <span class="fbar" aria-hidden="true"><i style="width:${Math.round(f.value * 100)}%"></i></span>
+    <span class="fnote">${mask(f.note)}</span></li>`).join("");
+  return `<details class="why"><summary>Why ${r.score}?</summary><ul class="factors">${rows}</ul>
+    ${r.bonus ? `<p class="hint">+${r.bonus} for a matching CMS Open Payments record.</p>` : ""}
+    <p class="hint">${esc(REL_TEXT[kind].explain)}</p></details>`;
+}
+const CATEGORY_RANK = ["employment", "equity", "board", "founder", "patents / royalties", "consulting", "advisory board",
+  "research funding", "speaking", "personal fees", "other"];
+function tieCategories(t) {  // every kind of tie found, most serious first (the score uses the most specific)
+  const cats = (t.categories && t.categories.length ? t.categories : [t.category || t.relation]).slice();
+  return cats.sort((a, b) => (CATEGORY_RANK.indexOf(a) + 99) % 99 - (CATEGORY_RANK.indexOf(b) + 99) % 99);
+}
 function tieHtml(t, cls) {
-  const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}</span></blockquote>`).join("");
-  const where = cls === "disc" ? "disclosed in article" : t.related_to_story ? "named in this story" : "not named in this story";
-  return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b><span class="tag">${esc(t.category || t.relation)}</span><span class="tag">${where}</span></div>${ev}${badge(t.open_payments)}</div>`;
+  const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}${e.matched_by ? " · named by " + esc(e.matched_by) : ""}</span></blockquote>`).join("");
+  const tags = tieCategories(t).map(c => `<span class="tag">${esc(c)}</span>`).join("");
+  return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b>${tags}${relPill(t.reliability)}</div>${ev}${badge(t.open_payments)}
+    ${relWhy(t.reliability, "tie")}</div>`;
+}
+function coverageHtml(e) {
+  const c = e.coverage;
+  if (!c) {  // e.g. a saved result from before coverage existed
+    return ["connections_found", "no_confirmed_connections"].includes(e.status)
+      ? `<p class="hint">Coverage wasn't rated for this saved result. Check again to rate it.</p>` : "";
+  }
+  const note = key => (c.factors.find(f => f.key === key) || {}).note || "";
+  const sentence = `${note("pages")[0].toUpperCase()}${note("pages").slice(1)}; ${note("channels")}.`;
+  const warn = e.status === "no_confirmed_connections" && c.label !== "Strong"
+    ? `<p class="hint">With coverage this thin, “no confirmed connections” is weak evidence that there are none.</p>` : "";
+  return `<div class="coverage">${relPill(c, "coverage")}<span class="hint">${mask(sentence)}</span></div>${warn}
+    ${relWhy(c, "coverage")}`;
 }
 function identityHtml(e) {
   const id = e.identity; if (!id) return "";
@@ -973,7 +1260,7 @@ function cardHtml(e) {
     ${related.map(t => tieHtml(t, "")).join("")}
     ${other.length ? `<details><summary>${other.length} other connection${other.length === 1 ? "" : "s"}, not named in this story</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
     ${(e.disclosed || []).length ? `<details><summary>${e.disclosed.length} connection${e.disclosed.length === 1 ? "" : "s"} the article disclosed</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
-    ${e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
+    ${e.coverage ? coverageHtml(e) : e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
     ${actions.length ? `<div class="card-actions">${actions.join("")}</div>` : ""}
   </article>`;
 }
@@ -995,7 +1282,7 @@ function updateCard(name) {
 }
 function renderCalls() {
   const by = {}; state.calls.forEach(c => by[c.api] = (by[c.api] || 0) + 1);
-  $("tally").innerHTML = Object.entries(by).map(([k, v]) => `<span>${esc(k)} · ${v}</span>`).join("");
+  $("tally").textContent = Object.entries(by).map(([k, v]) => `${k} ${v}`).join(" · ");
   $("calls").innerHTML = state.calls.map(c => `<div class="call"><div class="top"><span class="api ${esc(c.api)}">${esc(c.api)}</span>
     <span class="meta ${esc(c.source)}">${esc(c.source)} · ${c.ms} ms</span></div><span class="label">${mask(c.label)}</span>
     ${c.error ? `<span class="meta error">${esc(c.error)}</span>` : ""}</div>`).join("")

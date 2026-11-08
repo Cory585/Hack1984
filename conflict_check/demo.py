@@ -38,7 +38,7 @@ PAPER = {
     "url": "https://journals.example.org/jcc/okafor-2025-pcsk9",
     "title": "Long-term outcomes of oral PCSK9 inhibition: a cohort study · Journal of Cardiac Care",
     "text": ("Okafor M, Lee J, Haddad O. Long-term outcomes of oral PCSK9 inhibition: a cohort study. "
-             "Journal of Cardiac Care. 2025.\n"
+             "Journal of Cardiac Care. 2025. doi:10.5555/jcc.2025.0142\n"
              "Competing interests: M.O. reports consulting fees from Veltrix Pharmaceuticals and serves on a "
              "scientific advisory board for Halden Biotech; J.L. reports grants from Corvane Biologics. "
              "O.H. declares no competing interests."),
@@ -80,7 +80,8 @@ def _orcid(url: str) -> dict:
 def _exa(body: dict) -> dict:
     q = body.get("query", "")
     hits = [PAPER] if "Okafor" in q else []
-    return {"results": [{"url": p["url"], "title": p["title"], "text": p["text"]} for p in hits]}
+    return {"results": [{"url": p["url"], "title": p["title"], "text": p["text"],
+                         "publishedDate": "2025-06-12T00:00:00.000Z"} for p in hits]}
 
 
 def _tavily_search(body: dict) -> dict:
