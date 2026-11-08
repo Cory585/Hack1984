@@ -1,0 +1,5 @@
+.env
+__pycache__/
+*.pyc
+# API response cache. Commit a curated copy (e.g. demo-cache/) for replay mode on stage if needed.
+cache/

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "fixture-fictional",
+    "text_file": "tests/fixtures/article.txt",
+    "experts": {
+      "Maren Okafor": [],
+      "Tobias Wren": []
+    },
+    "note": "Fictional placeholder. Replace with ~20 hand-checked health-news articles (CMAJ 2017 method: compare quoted experts against their own paper disclosures)."
+  }
+]
