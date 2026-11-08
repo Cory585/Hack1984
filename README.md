@@ -34,6 +34,43 @@ Each expert ends in one of these states:
 
 **Mask names** replaces each expert's name with "Expert A", "Expert B" and so on everywhere on the page. Use it on stage.
 
+### Site flow
+
+Every state has a way forward: errors offer **Try again** plus a context-specific fix, and finished results offer next actions.
+
+```mermaid
+flowchart TD
+    A([Open the site]) --> B{Start}
+    B -->|"✦ Try the live demo"| D[Demo article loaded<br/>fictional data, no network]
+    B -->|Link or Paste text| C[Article input]
+    C -->|"Find experts (Ctrl+Enter)"| E[[Skeleton rows while loading]]
+    D --> E
+    C -->|empty| C1[/"Enter an article link"/] --> C
+    E -->|error| X1[Error box]
+    X1 -->|Try again| E
+    X1 -->|"Turn off replay mode<br/>(replay cache miss)"| E
+    X1 -->|"Use the demo instead<br/>(no API keys)"| D
+    E --> F["① Review the experts<br/>edit names · fill affiliations · add · untick"]
+    F -->|none found| F1[Add an expert / Try the demo article] --> F
+    F -->|Check selected experts| G[[Skeleton cards + step tracker<br/>Identity → Papers → Web → Payments<br/>API activity streams live]]
+    G -->|"seen before (stale-while-revalidate)"| G1[Last result shown instantly,<br/>marked Updating] --> G
+    G --> H["② Results, one card per expert"]
+    H --> S1[Connections not mentioned<br/>quotes · sources · Open Payments badge]
+    H --> S2[No confirmed connections]
+    H --> S3[Identity not confirmed]
+    H --> S4[Error]
+    S3 -->|"This is them (candidate)"| G
+    S3 -->|Edit name or affiliation| F
+    S4 -->|Retry| G
+    S4 -->|Edit name or affiliation| F
+    H --> N{What next?}
+    N -->|Edit experts| F
+    N -->|Copy summary / Download report| N
+    N -->|Check another article| C
+```
+
+The **How it works** cards expand to full width with a view transition (click, **Close** or **Esc**). **Limits** is a separate section, and the nav underlines the section in view.
+
 ## Command line
 
 Faster than the UI for tuning on real articles:
@@ -62,12 +99,15 @@ Every call goes through `session.Session`, which caches each response to disk (k
 
 | Route | Body | Returns |
 |---|---|---|
-| `POST /api/experts` | `{url \| text, replay?}` | article text and extracted experts |
-| `POST /api/check` | `{url \| text, experts?, replay?}` | the full result as JSON |
+| `POST /api/experts` | `{url \| text, replay?, demo?}` | article text and extracted experts |
+| `POST /api/check` | `{url \| text, experts?, replay?, demo?}` | the full result as JSON |
 | `POST /api/check/stream` | same | NDJSON events: `start`, `call`, `expert`, then `done` or `error` |
-| `GET /api/config` | | replay default, cache folder, which keys are set |
+| `GET /api/config` | | replay default, cache folder, which keys are set (`stale-while-revalidate`) |
+| `GET /api/demo` | | the fictional demo article |
 
-`experts` is a list of `{name, affiliation?, orcid?}`. Leave it out to use the extractor's top 5.
+`experts` is a list of `{name, affiliation?, orcid?}`. Leave it out to use the extractor's top 5. `"demo": true` runs the real pipeline on fictional data from `conflict_check/demo.py`, with no keys and no network. Requests over 2 MB are rejected.
+
+**Caching.** The page is sent with `no-cache`, so a demo laptop never shows a stale UI. `/api/config` uses `stale-while-revalidate`. In the browser, a repeat check of the same article and experts shows the last result immediately, marked **Updating**, while fresh results stream in. The last 8 checks are kept in local storage.
 
 ## Safety rules (from the risk review)
 
@@ -80,7 +120,9 @@ Every call goes through `session.Session`, which caches each response to disk (k
 
 ## Demo mode
 
-Every live response is cached, so a run you've done once can be replayed with no network:
+**Built-in demo:** click **✦ Try the live demo**. It runs the real pipeline on a fictional article, people and companies, with realistic delays and no keys or network. It covers every result state: a confirmed expert with ties and an Open Payments badge, an expert you confirm by picking a candidate, and a spokesperson who is set aside.
+
+**Replaying real runs:** every live response is cached, so a run you've done once can be replayed with no network:
 
 ```sh
 python -m conflict_check.server --cache-dir demo-cache        # run the demo articles live once
