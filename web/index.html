@@ -206,6 +206,20 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: 0; }
 .adv { display: inline-block; } .adv summary { min-height: 44px; margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .adv[open] { display: block; flex-basis: 100%; }
+.conn { border-top: 1px solid var(--rule-soft); padding: 0; }
+.conn:first-of-type { border-top: 0; }
+.conn > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-3); align-items: baseline; margin: 0; padding: var(--sp-3) 0; color: var(--ink); font-weight: 400; min-height: 56px; }
+.conn > summary::after { display: none; }
+.conn > summary:hover .c-org { color: var(--accent); }
+.c-org { font: 700 var(--fs-md) var(--display); letter-spacing: -.015em; }
+.c-kind { font-size: var(--fs-sm); color: var(--muted); font-weight: 400; margin-left: var(--sp-2); font-family: var(--font); letter-spacing: 0; }
+.conn .rel { margin: 0; justify-self: end; }
+.c-snip { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.45; }
+.c-snip em { color: var(--muted); font-style: normal; }
+.c-pay { color: var(--badge-ink); font-weight: 600; font-size: var(--fs-xs); margin-left: var(--sp-2); }
+.conn-body { display: grid; gap: var(--sp-3); padding: 0 0 var(--sp-4); }
+.conn[open] > summary .c-snip { display: none; }
+.verdict { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .tie-note { margin: calc(var(--sp-2) * -1) 0 0; }
 blockquote.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .q-more { all: unset; cursor: pointer; color: var(--accent); font-size: var(--fs-sm); font-weight: 700; margin-top: calc(var(--sp-2) * -1); }
@@ -215,8 +229,7 @@ details.more-src { border-top: 0; padding-top: 0; } details.more-src summary { m
 .tie-group { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--flag); }
 
 /* ---------- results ---------- */
-.results-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: var(--sp-5); align-items: start; }
-@media (max-width: 900px) { .results-wrap { grid-template-columns: 1fr; } }
+.results-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); max-width: 880px; }
 #results { display: grid; gap: var(--sp-4); min-width: 0; }
 .result { display: grid; gap: var(--sp-4); padding: var(--sp-5); }
 .result.pending { opacity: .65; }
@@ -258,10 +271,13 @@ details > .tie { margin-top: var(--sp-3); }
 .empty { text-align: center; color: var(--muted); padding: var(--sp-7) 0; }
 
 /* ---------- activity ---------- */
-.activity { position: sticky; top: 72px; padding: var(--sp-5); }
+.activity { border: 1.5px solid var(--rule-soft); border-radius: var(--r-lg); padding: var(--sp-2) var(--sp-5); background: var(--surface); }
+.activity > summary { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); gap: var(--sp-3); flex-wrap: wrap; }
+.activity > summary .tally { margin: 0; font-weight: 400; color: var(--muted); }
+.activity #calls { padding-bottom: var(--sp-3); }
 .activity h3 { font: 700 var(--fs-base) var(--display); margin: 0 0 var(--sp-1); }
-.tally { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); }
-.tally span { font: 600 var(--fs-xs) var(--font); /* plain counts */ padding: var(--sp-1) var(--sp-3); border-radius: var(--r-pill); background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--rule); }
+.tally { display: inline; font-size: var(--fs-xs); }
+
 #calls { display: grid; gap: 0; max-height: 62vh; overflow: auto; margin: 0 -6px; padding: 0 var(--sp-2); }
 .call { padding: var(--sp-2) 0; border-top: 1px dashed var(--rule); font-size: var(--fs-sm); display: grid; gap: 2px; }
 .call .top { display: flex; justify-content: space-between; gap: var(--sp-2); }
@@ -627,11 +643,10 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
     <div class="banner" id="banner" role="status" hidden></div>
     <div class="results-wrap">
       <main id="results" aria-live="polite"></main>
-      <aside class="card activity" aria-label="API activity">
-        <h3>API activity</h3>
-        <div class="tally" id="tally"></div>
+      <details class="activity" id="activity">
+        <summary>What it looked up <span class="tally" id="tally"></span></summary>
         <div id="calls"></div>
-      </aside>
+      </details>
     </div>
     <div class="result-actions" id="result-actions" hidden>
       <button class="btn secondary small" type="button" data-act="edit-experts"><svg class="i" aria-hidden="true"><use href="#i-edit"/></svg>Edit experts</button>
@@ -1230,17 +1245,23 @@ function tieCategories(t) {  // every kind of tie found, most serious first (the
   return cats.sort((a, b) => (CATEGORY_RANK.indexOf(a) + 99) % 99 - (CATEGORY_RANK.indexOf(b) + 99) % 99);
 }
 function quoteHtml(e) {
-  const long = (e.quote || "").length > 200;
-  return `<blockquote${long ? ' class="clamp"' : ""}>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}${e.matched_by ? " · named by " + esc(e.matched_by) : ""}</span></blockquote>${long ? `<button type="button" class="q-more" aria-expanded="false">Show full quote</button>` : ""}`;
+  return `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}${e.matched_by ? " · named by " + esc(e.matched_by) : ""}</span></blockquote>`;
+}
+function snippetOf(e, org) {  // one short line of evidence, centred on the company's name
+  const q = (e.quote || "").replace(/\s+/g, " "), key = (org.split(/\s+/).find(w => w.length > 3) || org).toLowerCase();
+  const i = Math.max(0, q.toLowerCase().indexOf(key));
+  const from = Math.max(0, i - 60), to = Math.min(q.length, i + 110);
+  return `${from > 0 ? "…" : ""}${q.slice(from, to)}${to < q.length ? "…" : ""}`;
 }
 function tieHtml(t, cls) {
-  const [first, ...more] = t.evidence;
-  const ev = (first ? quoteHtml(first) : "") + (more.length
-    ? `<details class="more-src"><summary>${plural(more.length, "more source")}</summary>${more.map(quoteHtml).join("")}</details>` : "");
-  const tags = (cls !== "disc" && t.related_to_story ? `<span class="tag story">In the story</span>` : "") +
-    tieCategories(t).map(c => `<span class="tag">${esc(c)}</span>`).join("");
-  return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b>${tags}${relPill(t.reliability)}</div>${ev}${badge(t.open_payments)}
-    ${relWhy(t.reliability, "tie")}</div>`;
+  const [first] = t.evidence, label = (t.reliability || {}).label;
+  const kinds = tieCategories(t).slice(0, 2).join(", ");
+  const op = t.open_payments && t.open_payments.status === "name_match";
+  const snip = first ? `<span class="c-snip">“${mask(snippetOf(first, t.org))}” <em>${mask(first.title || "")}</em></span>` : "";
+  const story = cls !== "disc" && t.related_to_story ? `<span class="tag story">In the story</span>` : "";
+  return `<details class="conn ${cls}"><summary><span><span class="c-org">${esc(t.org)}</span><span class="c-kind">${esc(kinds)}</span>${story}${op ? `<span class="c-pay">· payments on record</span>` : ""}</span>
+    ${label ? `<span class="rel ${esc(label.toLowerCase())}" title="${REL_TEXT.tie.title} ${t.reliability.score}/100">${esc(label)}</span>` : ""}${snip}</summary>
+    <div class="conn-body">${t.evidence.map(quoteHtml).join("")}${badge(t.open_payments)}${relWhy(t.reliability, "tie")}</div></details>`;
 }
 function coverageHtml(e) {
   const c = e.coverage;
@@ -1291,10 +1312,9 @@ function cardHtml(e) {
       <div>${e.stale ? `<span class="updating"><span class="spinner" aria-hidden="true"></span>Updating</span> ` : ""}<span class="chip ${e.status}">${esc(statusLabel(e))}</span></div></div>
     ${identityHtml(e)}
     ${e.error ? `<p class="msg" style="text-align:left">${esc(e.error)}</p>` : ""}
-    ${ties.length ? `<h4 class="tie-group">Not in the article</h4>
-      <p class="hint tie-note">${rest.length ? `The ${top.length} strongest of ${ties.length}. ` : ""}Each score (0–100) is how far to trust that connection.</p>` : ""}
+    ${ties.length ? `<p class="verdict">Strongest first. Select one for the quotes and why it scored that way.</p>` : ""}
     ${top.map(t => tieHtml(t, t.related_to_story ? "" : "other")).join("")}
-    ${rest.length ? `<details><summary>Show the other ${rest.length}${weak ? ` (${weak} weak)` : ""}</summary>${rest.map(t => tieHtml(t, t.related_to_story ? "" : "other")).join("")}</details>` : ""}
+    ${rest.length ? `<details class="rest"><summary>Show the other ${rest.length}${weak ? ` (${weak} weak)` : ""}</summary>${rest.map(t => tieHtml(t, t.related_to_story ? "" : "other")).join("")}</details>` : ""}
     ${(e.disclosed || []).length ? `<details><summary>${plural(e.disclosed.length, "connection")} the article already mentioned</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
     ${e.badges_pending ? `<p class="hint"><span class="spinner" aria-hidden="true"></span> Checking CMS Open Payments. Scores may change.</p>` : ""}
     ${e.coverage ? coverageHtml(e) : e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
@@ -1329,7 +1349,11 @@ function friendlyCall(c) {  // plain wording for the lookups that read like code
   if (c.api === "openalex") return "Checking the researcher's papers (OpenAlex)";
   return c.label;
 }
+let wasActive = false;
 function renderCalls() {
+  const act = $("activity");
+  if (state.active > 0) act.open = true; else if (wasActive) act.open = false;  // streams while checking, folds away after
+  wasActive = state.active > 0;
   const by = {}; state.calls.forEach(c => by[c.api] = (by[c.api] || 0) + 1);
   $("tally").textContent = Object.entries(by).map(([k, v]) => `${k} ${v}`).join(" · ");
   $("calls").innerHTML = state.calls.map(c => `<div class="call"><div class="top"><span class="api ${esc(c.api)}">${esc(c.api)}</span>

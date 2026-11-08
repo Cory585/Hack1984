@@ -73,12 +73,12 @@ try:
     check("every API call came from the cache", calls and set(calls) == {"cache"}, str(sorted(set(calls))))
 
     buse = "[data-card='John Buse']"
-    orgs = b.js("[...document.querySelectorAll(\"" + buse + " .tie\")].map(t => t.querySelector('b').textContent)")
+    orgs = b.js("[...document.querySelectorAll(\"" + buse + " .conn\")].map(t => t.querySelector('.c-org').textContent)")
     check("Buse lists Eli Lilly and AstraZeneca", {"Eli Lilly", "AstraZeneca"} <= set(orgs), str(orgs))
     check("Open Payments badge shown for Buse", b.js("!!document.querySelector(\"" + buse + " .op b\")"))
-    check("every tie has a reliability pill", b.js("[...document.querySelectorAll(\"" + buse + " .tie\")].every(t => !!t.querySelector('.rel'))"))
-    b.js("document.querySelector(\"" + buse + " .tie details.why\").open = true")
-    check("'Why?' lists the seven factors", b.js("document.querySelector(\"" + buse + " .tie details.why .factors\").children.length") == 7)
+    check("every tie has a reliability pill", b.js("[...document.querySelectorAll(\"" + buse + " .conn\")].every(t => !!t.querySelector('.rel'))"))
+    b.js("document.querySelector(\"" + buse + " .conn\").open = true; document.querySelector(\"" + buse + " .conn details.why\").open = true")
+    check("'Why?' lists the seven factors", b.js("document.querySelector(\"" + buse + " .conn details.why .factors\").children.length") == 7)
     check("coverage rating shown", b.js("!!document.querySelector(\"" + buse + " .coverage .rel\")"))
     check("Drucker card says how identity was confirmed", b.js("!!document.querySelector(\"[data-card='Daniel Drucker']\").innerText.match(/OpenAlex/i)"))
     b.js("document.getElementById('results-block').scrollIntoView()"); time.sleep(0.3); b.shot(SP + "/replay-2-results.png")

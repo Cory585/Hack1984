@@ -90,11 +90,11 @@ try:
 
     # --- reliability ratings ---
     card = "[data-card='Maren Okafor']"
-    okafor_rel = b.js("[...document.querySelectorAll(\"" + card + " .tie\")].map(t => [t.querySelector('b').textContent, (t.querySelector('.rel') || {}).textContent])")
+    okafor_rel = b.js("[...document.querySelectorAll(\"" + card + " .conn\")].map(t => [t.querySelector('.c-org').textContent, (t.querySelector('.rel') || {}).textContent])")
     check("every connection shows a reliability pill", okafor_rel and all(r[1] for r in okafor_rel), str(okafor_rel))
     check("story-related connection listed first", okafor_rel and okafor_rel[0][0] == "Veltrix Pharmaceuticals", str(okafor_rel))
-    b.js("document.querySelector(\"" + card + " .tie details.why\").open = true")
-    check("'Why?' lists the seven factors", b.js("document.querySelector(\"" + card + " .tie details.why .factors\").children.length") == 7)
+    b.js("document.querySelector(\"" + card + " .conn\").open = true; document.querySelector(\"" + card + " .conn details.why\").open = true")
+    check("'Why?' lists the seven factors", b.js("document.querySelector(\"" + card + " .conn details.why .factors\").children.length") == 7)
     check("coverage rating shown", b.js("!!document.querySelector(\"" + card + " .coverage .rel\")"))
     b.js("document.querySelector(\"" + card + "\").scrollIntoView()"); time.sleep(0.2); b.shot(SP + "/e2e-6-reliability.png")
 
