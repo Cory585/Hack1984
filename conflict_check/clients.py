@@ -10,11 +10,15 @@ EXA = "https://api.exa.ai"
 ORCID = "https://pub.orcid.org/v3.0"
 
 
-def tavily_search(s: Session, query: str, max_results: int = 5) -> list[dict]:
+def tavily_search(s: Session, query: str, max_results: int = 5, raw_content: bool = False) -> list[dict]:
+    """raw_content=True returns each page's text with the hits, saving a separate extract call."""
+    body = {"query": query, "max_results": max_results, "search_depth": "basic"}
+    if raw_content:
+        body["include_raw_content"] = True
     data = s.request(
         "tavily", f"search: {query}", "POST", f"{TAVILY}/search",
         {"Authorization": f"Bearer {s.key('tavily')}"},
-        {"query": query, "max_results": max_results, "search_depth": "basic"},
+        body,
     )
     return data.get("results") or []
 

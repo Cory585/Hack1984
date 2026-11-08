@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import threading
 import time
 import urllib.error
@@ -28,19 +29,37 @@ class MissingKey(Exception):
     pass
 
 
-def urllib_fetcher(method: str, url: str, headers: dict, body: Any, timeout: int = 45) -> Any:
+RETRY_STATUS = {429, 500, 502, 503, 504}
+RETRIES = 2  # extra attempts after the first; every call here is an idempotent query
+
+
+def urllib_fetcher(method: str, url: str, headers: dict, body: Any, timeout: int = 45,
+                   sleep: Callable[[float], None] = time.sleep) -> Any:
     data = None
     headers = {"User-Agent": "conflict-check/0.1", "Accept": "application/json", **headers}
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", "replace")[:300]
-        raise RuntimeError(f"HTTP {e.code} from {url}: {detail}") from e
+    for attempt in range(RETRIES + 1):
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "replace")[:300]
+            if e.code in RETRY_STATUS and attempt < RETRIES:
+                try:
+                    wait = min(float(e.headers.get("Retry-After", "")), 5.0)
+                except (TypeError, ValueError):
+                    wait = 0.5 * 2 ** attempt
+                sleep(wait + random.uniform(0, 0.25))
+                continue
+            raise RuntimeError(f"HTTP {e.code} from {url}: {detail}") from e
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if attempt < RETRIES:  # dropped connection or timeout: try again
+                sleep(0.5 * 2 ** attempt + random.uniform(0, 0.25))
+                continue
+            raise RuntimeError(f"Could not reach {url}: {e}") from e
 
 
 class Session:
@@ -91,7 +110,7 @@ class Session:
             raise
         if path:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            tmp = f"{path}.{os.getpid()}.tmp"  # write then rename: concurrent requests never see half a file
+            tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"  # write then rename: concurrent requests never see half a file
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump({"request": {"method": method, "url": url, "body": body}, "response": data}, f)
             os.replace(tmp, path)

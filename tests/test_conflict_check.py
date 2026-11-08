@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from conflict_check.extract import extract_experts
-from conflict_check.pipeline import check_article
+from conflict_check.pipeline import gather_pages, check_article
 from conflict_check.session import ReplayMiss, Session
 from conflict_check.ties import classify_tie, find_ties, split_clauses, verify_quote
 
@@ -114,7 +114,10 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(badge["total_usd"], 3000.0)
         self.assertIsNone(okafor["ties"][1]["open_payments"])  # Halden: no payments, no badge
         self.assertEqual(by["Tobias Wren"]["status"], "identity_not_confirmed")
-        self.assertTrue(all(c["source"] == "live" for c in result["calls"]))
+        # Experts run in parallel and the fake search returns the same URL for everyone, so a repeated
+        # extract may legitimately come from the cache; nothing may error or miss.
+        self.assertTrue(all(c["source"] in ("live", "cache") for c in result["calls"]))
+        self.assertIn("live", {c["source"] for c in result["calls"]})
 
         replayed = check_article(self.session(replay=True), text=ARTICLE)
         self.assertEqual(replayed["experts"], result["experts"])
@@ -148,8 +151,8 @@ class TestPipeline(unittest.TestCase):
         s = self.session(fetcher=fake_fetcher(1), on_call=calls.append)
         check_article(s, text=ARTICLE, experts=[{"name": "Okafor"}, {"name": "Maren Okafor",
                       "affiliation": "Lakeside University"}], on_event=events.append)
-        # ties arrive first (badges pending), then one update with the Open Payments badges added
-        self.assertEqual([e["type"] for e in events], ["start", "expert", "update"])
+        # ties arrive first (badges pending), then an update as the Veltrix badge lands, then the final one
+        self.assertEqual([e["type"] for e in events], ["start", "expert", "update", "update"])
         self.assertEqual(events[0]["experts"], ["Maren Okafor"])
         self.assertEqual(calls, s.calls)
 
@@ -158,7 +161,9 @@ class TestPipeline(unittest.TestCase):
         s = self.session(fetcher=fake_fetcher(1))
         result = check_article(s, text=ARTICLE, experts=[{"name": "Maren Okafor", "affiliation": "Lakeside University"}],
                                on_event=events.append)
-        early, final = events[1]["expert"], events[2]["expert"]
+        early, arrived, final = events[1]["expert"], events[2]["expert"], events[3]["expert"]
+        self.assertTrue(arrived["badges_pending"])  # streamed as soon as one badge is in
+        self.assertEqual(arrived["ties"][0]["open_payments"]["status"], "name_match")
         self.assertTrue(early["badges_pending"])
         self.assertTrue(early["ties"])
         self.assertTrue(all(t["open_payments"] is None for t in early["ties"]))
@@ -166,6 +171,22 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(final, result["experts"][0])
         self.assertEqual([t["org"] for t in early["ties"]] and sorted(t["org"] for t in early["ties"]),
                          sorted(t["org"] for t in final["ties"]))
+
+    def test_tavily_raw_content_skips_the_extract_call(self):
+        def fetch(method, url, headers, body):
+            if "api.exa.ai" in url:
+                return {"results": []}
+            if url.endswith("/search"):
+                assert body["include_raw_content"] is True
+                return {"results": [{"url": "https://example.org/a", "title": "A", "raw_content": PAPER},
+                                    {"url": "https://example.org/b", "title": "B"}]}  # no text: needs an extract
+            if url.endswith("/extract"):
+                assert body["urls"] == ["https://example.org/b"]
+                return {"results": [{"url": u, "raw_content": UNRELATED} for u in body["urls"]]}
+            raise AssertionError(url)
+        pages = gather_pages(self.session(fetcher=fetch), "Maren Okafor", "Lakeside University")
+        self.assertEqual({p["url"]: p["text"] for p in pages},
+                         {"https://example.org/a": PAPER, "https://example.org/b": UNRELATED})
 
     def test_no_early_event_when_open_payments_is_off(self):
         import os
@@ -208,3 +229,53 @@ class InputValidationTests(unittest.TestCase):
         dup = {"name": "Maria Okafor", "affiliation": "Lakeside"}
         got = experts_from_request([dup, dict(dup, name="maria  okafor"), {"name": "Tobias Wren"}])
         self.assertEqual([e.name for e, _ in got], ["Maria Okafor", "Tobias Wren"])
+
+
+class TestRetries(unittest.TestCase):
+    def run_fetch(self, outcomes):
+        import io, urllib.error, urllib.request
+        from unittest import mock
+        from conflict_check.session import urllib_fetcher
+        calls, waits = [], []
+
+        class Resp(io.BytesIO):
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(req, timeout=0):
+            calls.append(1)
+            o = outcomes[len(calls) - 1]
+            if isinstance(o, Exception):
+                raise o
+            return Resp(o)
+
+        with mock.patch("urllib.request.urlopen", fake_urlopen):
+            try:
+                return urllib_fetcher("GET", "http://x", {}, None, sleep=waits.append), len(calls), waits
+            except RuntimeError as e:
+                return e, len(calls), waits
+
+    def http(self, code, retry_after=None):
+        import email.message, io, urllib.error
+        h = email.message.Message()
+        if retry_after:
+            h["Retry-After"] = retry_after
+        return urllib.error.HTTPError("http://x", code, "err", h, io.BytesIO(b"{}"))
+
+    def test_retries_429_then_succeeds(self):
+        data, n, waits = self.run_fetch([self.http(429, "1"), b'{"ok": 1}'])
+        self.assertEqual((data, n), ({"ok": 1}, 2))
+        self.assertTrue(1 <= waits[0] <= 1.25)  # honours Retry-After
+
+    def test_retries_dropped_connection(self):
+        import urllib.error
+        data, n, _ = self.run_fetch([urllib.error.URLError("reset"), TimeoutError(), b'{"ok": 2}'])
+        self.assertEqual((data, n), ({"ok": 2}, 3))
+
+    def test_gives_up_after_retries_and_does_not_retry_4xx(self):
+        err, n, _ = self.run_fetch([self.http(503)] * 3)
+        self.assertIsInstance(err, RuntimeError)
+        self.assertEqual(n, 3)
+        err, n, _ = self.run_fetch([self.http(401), b"{}"])
+        self.assertIn("HTTP 401", str(err))
+        self.assertEqual(n, 1)
