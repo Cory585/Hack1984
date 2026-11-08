@@ -6,7 +6,7 @@ Runs with **no network and no API keys**: every Tavily, Exa, ORCID and Open Paym
 python -m conflict_check.server --replay --cache-dir demo-cache   # http://localhost:8000
 ```
 
-Replay serves only saved answers, so stick to the two articles below. Anything else shows an error ("Not cached (replay mode)"). To rebuild the cache, run the server without `--replay` and your keys, with the same articles and experts. Open Payments lookups can take 35-40 s, and the server gives up on them at 20 s, so a rebuild may drop slow badges.
+`python tests/e2e/walk_replay.py` clicks through Article 1 below in a headless browser and checks the results (19 checks, no keys or network). Replay serves only saved answers, so stick to the two articles below. Anything else shows an error ("Not cached (replay mode)"). To rebuild the cache, run the server without `--replay` and your keys, with the same articles and experts. Open Payments lookups can take 35-40 s, and the server gives up on them at 20 s, so a rebuild may drop slow badges.
 
 ## Article 1: the Wegovy pill (Scientific American)
 
