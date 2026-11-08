@@ -91,6 +91,67 @@ class TestRealWorldDisclosures(unittest.TestCase):
         self.assertEqual(self.ties_for("Maren Okafor", coi), {"Eli Lilly do Brasil", "Takeda"})
 
 
+class TestReviewFindings(unittest.TestCase):
+    """Cases from the PR review (RayanR000), reproduced before fixing."""
+
+    def test_particle_as_given_name_keeps_its_initial(self):
+        from conflict_check.ties import name_parts, person_patterns
+        self.assertEqual(name_parts("Le Wang")[2], ["Le", "Wang"])
+        clause = person_patterns("Le Wang")[1]
+        self.assertTrue(clause.search("LW reports fees from Corvane Biologics."))
+        self.assertFalse(clause.search("W reports fees from Corvane Biologics."))
+        self.assertEqual(name_parts("Ruy Lyra da Silva Filho")[1:], ("Silva", ["Ruy", "Lyra", "Silva", "Filho"]))
+
+    def test_page_check_needs_name_like_middle_words(self):
+        from conflict_check.ties import person_patterns
+        strong = person_patterns("Maren Okafor")[0]
+        self.assertFalse(strong.search("Maren thanked Dr. Okafor"))
+        self.assertFalse(strong.search("Maren\nOkafor"))
+        self.assertTrue(strong.search("Maren J. Okafor"))
+        self.assertTrue(strong.search("Maren de Okafor"))
+
+    def test_no_space_after_title_still_verifies(self):
+        page = "Maren Okafor. Disclosures: Dr.Okafor reports consulting fees from Veltrix Pharmaceuticals."
+        self.assertEqual(set(ties(page)), {"Veltrix Pharmaceuticals"})
+
+    def test_quote_excludes_other_peoples_disclosures(self):
+        page = "Maren Okafor, Jon Fisk. MO reports fees from Halden Biotech; JF reports fees from Orbis Labs."
+        quote = ties(page)["Halden Biotech"]["evidence"][0]["quote"]
+        self.assertNotIn("Orbis", quote)
+        self.assertNotIn("JF", quote)
+
+    def test_quote_keeps_the_name_for_continuations(self):
+        page = ("Tomas Berg. Dr. Berg has received grants from Corvane Biologics; personal fees from Halden Biotech; "
+                "JF reports fees from Orbis Labs.")
+        quote = ties(page, name="Tomas Berg")["Halden Biotech"]["evidence"][0]["quote"]
+        self.assertIn("Dr. Berg", quote)
+        self.assertIn("Halden Biotech", quote)
+        self.assertNotIn("Orbis", quote)
+
+    def test_company_merging_is_whole_word(self):
+        from conflict_check.ties import same_company
+        for a, b in [("Astra Zeneca", "AstraZeneca"), ("Astra-Zeneca", "AstraZeneca"), ("Pfizer", "Pfizer Inc"),
+                     ("Lilly", "Eli Lilly"), ("Boehringer", "Boehringer Ingelheim"), ("NovoNordisk", "Novo Nordisk"),
+                     ("Merck", "Merck Sharp & Dohme")]:
+            self.assertTrue(same_company(a, b), (a, b))
+        for a, b in [("Merck", "Merck KGaA"), ("Merck", "Merck Serono"), ("Amgen", "Amgenta"), ("GSK", "GSK Vaccines"),
+                     ("Bayer", "Novartis")]:
+            self.assertFalse(same_company(a, b), (a, b))
+        self.assertEqual(same_company("Merck KGaA", "Merck"), same_company("Merck", "Merck KGaA"))  # symmetric
+
+    def test_initial_plus_surname_subjects_still_split_people(self):
+        page = ("Maren Okafor, Jon Lee. J. Lee reports fees from Acme Labs, and M. Okafor reports fees from Cora Labs. "
+                "M. Okafor received grants from Bolt Labs.")
+        self.assertEqual(set(ties(page, exclude=[])), {"Cora Labs", "Bolt Labs"})
+        self.assertEqual(set(ties(page, name="Jon Lee", exclude=[])), {"Acme Labs"})
+
+    def test_disclosed_check_uses_surname_not_suffix(self):
+        from conflict_check.ties import surname
+        article = "John Smith Jr said it worked.\n\nSmith, who consults for Veltrix, praised the drug."
+        self.assertEqual(surname("John Smith Jr"), "Smith")
+        self.assertTrue(classify_tie({"org": "Veltrix"}, article, surname("John Smith Jr"))["disclosed_in_article"])
+
+
 class TestNegation(unittest.TestCase):
     def test_declares_no_competing_interests(self):
         self.assertEqual(ties("Maren Okafor. Conflict of interest: M.O. declares no competing interests."), {})

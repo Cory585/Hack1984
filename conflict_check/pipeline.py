@@ -9,7 +9,7 @@ from .identity import identity_from_pick, resolve_identity
 from .openpayments import badge_for_tie
 from .session import Session
 from .reliability import rate_expert
-from .ties import classify_tie, find_ties
+from .ties import classify_tie, find_ties, surname
 
 MAX_EXPERTS = 5
 SCOPE_NOTE = ("Shows connections disclosed elsewhere (papers, bios, filings) that this article didn't "
@@ -94,8 +94,8 @@ def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: st
     except Exception as err:  # keep the confirmed identity visible even if the search fails
         out.update(status="error", error=str(err), ties=[], disclosed=[])
         return out
-    surname = expert.name.split()[-1]
-    ties = [classify_tie(t, article_text, surname)
+    last = surname(expert.name)  # skips suffixes: "John Smith Jr" -> Smith, matching how the article refers to him
+    ties = [classify_tie(t, article_text, last)
             for t in find_ties(pages, expert.name, exclude_orgs=[expert.affiliation])]
     add_badges(s, expert.name, ties)
     out["pages_checked"] = len(pages)

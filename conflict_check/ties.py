@@ -50,7 +50,8 @@ SUBJECT_VERB = (r"(?:reports?|reported|has|have|had|received|receives|is|was|ser
                 r"holds?|held|owns?|consults?|consulted|acts?|acted|discloses?|disclosed|works?|worked)")
 # Author initials as used in disclosure statements: "J.L.", "JL", "JFKS", "SvLS" (with a lowercase particle).
 INITIALS = r"(?:[A-Z]\.\s?){2,5}|[A-Z](?:[a-z]?[A-Z]){1,5}\b"
-SUBJECT = rf"(?:(?:Drs?\.?|Prof\.?|Professor|Mr\.?|Ms\.?)\s+)?(?:{INITIALS}|[A-Z][a-z]+(?:\s+[A-Z]{{1,2}}\b)?)"
+# A sentence subject: initials, or a surname optionally led by a title and/or one initial ("M. Okafor").
+SUBJECT = rf"(?:(?:Drs?\.?|Prof\.?|Professor|Mr\.?|Ms\.?)\s+)?(?:{INITIALS}|(?:[A-Z]\.\s?)?[A-Z][a-z]+(?:\s+[A-Z]{{1,2}}\b)?)"
 SEGMENT_SPLIT = re.compile(rf"(?:,\s*|\s+)(?:and\s+|while\s+|whereas\s+|but\s+)?(?={SUBJECT}\s+{SUBJECT_VERB}\b)")
 
 # Capitalised words that start disclosure phrases rather than names of organizations.
@@ -92,17 +93,26 @@ SENT_SPLIT = re.compile(r"(?<=[.!?])\s+|(?<=[a-z0-9)\]][.!?])(?=[A-Z])|\n+"
 
 
 def split_sentences(text: str) -> list[str]:
-    out: list[str] = []
-    for piece in SENT_SPLIT.split(text):
-        piece = piece.strip()
-        if not piece:
+    """Sentences as exact slices of `text`, so quotes taken from them always verify against the page
+    (re-joining pieces with a space turned "Dr.Okafor" into "Dr. Okafor" and failed verification)."""
+    spans, start = [], 0
+    for m in SENT_SPLIT.finditer(text):
+        spans.append((start, m.start()))
+        start = m.end()
+    spans.append((start, len(text)))
+    out: list[list[int]] = []
+    for s, e in spans:
+        piece = text[s:e]
+        if not piece.strip():
             continue
+        s += len(piece) - len(piece.lstrip())
+        e = s + len(piece.strip())
         # Keep "Dr. Okafor" together, and don't start a sentence in lowercase ("Dr. Oliva. has …").
-        if out and (ABBREV.search(out[-1]) or piece[0].islower()):
-            out[-1] = f"{out[-1]} {piece}"
+        if out and (ABBREV.search(text[out[-1][0]:out[-1][1]]) or text[s].islower()):
+            out[-1][1] = e
         else:
-            out.append(piece)
-    return out
+            out.append([s, e])
+    return [text[s:e] for s, e in out]
 
 
 def split_clauses(text: str) -> list[str]:
@@ -119,8 +129,8 @@ def segments(clause: str) -> list[str]:
     """Cut a clause wherever a new subject starts: '…, and Dr Okafor reports …'."""
     parts, last = [], 0
     for m in SEGMENT_SPLIT.finditer(clause):
-        if re.search(r"\b(?:Drs?|Prof|Professor|Mr|Ms|Mrs)\.?$", clause[:m.start()]):
-            continue  # don't separate a title from its name
+        if re.search(r"(?:\b(?:Drs?|Prof|Professor|Mr|Ms|Mrs)\.?|\b[A-Z]\.)$", clause[:m.start()]):
+            continue  # don't separate a title or an initial from its name ("Dr Lee", "M. Okafor")
         if m.start() > last:
             parts.append(clause[last:m.start()])
             last = m.end()
@@ -153,16 +163,35 @@ def compact(org: str) -> str:
     return re.sub(r"[^a-z0-9]", "", " ".join(distinctive_tokens(org)).lower())
 
 
+# Legal-form words that don't change which company is meant ("Pfizer" = "Pfizer Inc").
+LEGAL_FORMS = {"inc", "corp", "corporation", "co", "company", "ltd", "limited", "llc", "plc", "ag", "sa", "gmbh",
+               "pharmaceuticals", "pharmaceutical", "pharma", "group", "holdings", "the", "and"}
+# Words that mark a *different* company even though the rest matches: Merck KGaA / Merck Serono are not
+# Merck & Co. (KGaA is a legal form, but here it's the distinguishing part.)
+DISTINGUISHING = {"kgaa", "serono"}
+
+
+def _company_words(org: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z0-9]+", org.lower()) if w not in LEGAL_FORMS]
+
+
 def same_company(a: str, b: str) -> bool:
-    """Looser match used to merge spellings of one company: 'Lilly' / 'Eli Lilly',
-    'Novo Nordisk' / 'NovoNordisk'. Short names (< 4 letters) must match exactly."""
-    ca, cb = compact(a), compact(b)
-    if not ca or not cb:
+    """Spellings of one company: 'Astra Zeneca' / 'AstraZeneca' / 'Astra-Zeneca', 'Pfizer' / 'Pfizer Inc',
+    'Lilly' / 'Eli Lilly', 'Boehringer' / 'Boehringer Ingelheim'.
+    Matches whole words only (never 'Amgen' inside 'Amgenta'): the shorter name must equal the longer
+    one's leading or trailing words, be at least 4 letters, and the extra words can't mark a different
+    company ('Merck' vs 'Merck KGaA')."""
+    wa, wb = _company_words(a), _company_words(b)
+    if not wa or not wb:
         return False
-    if ca == cb or same_org(a, b):
+    if "".join(wa) == "".join(wb):  # spacing, hyphens, legal forms
         return True
-    short, long_ = sorted((ca, cb), key=len)
-    return len(short) >= 4 and short in long_
+    short, long_ = sorted((wa, wb), key=len)
+    if len("".join(short)) < 4 or len(short) == len(long_):
+        return False
+    n = len(short)
+    extra = long_[n:] if long_[:n] == short else long_[:-n] if long_[-n:] == short else None
+    return extra is not None and not (set(extra) & DISTINGUISHING)
 
 
 def category(keyword: str) -> str:
@@ -171,12 +200,26 @@ def category(keyword: str) -> str:
 
 
 def name_parts(name: str) -> tuple[str, str, list[str]]:
-    """(first, surname, initials-parts). Initials skip particles ("Ruy Lyra da Silva Filho" -> RLSF);
-    the surname skips suffixes too (Filho, Júnior, Jr)."""
+    """(first, surname, initials-parts).
+    Particles (da, van, le, di, bin…) are skipped only between the first and last names, because they
+    are also real given and family names ("Le Wang" -> LW, not W). Suffixes (Filho, Júnior, Jr) are part
+    of the initials but not the surname: "Ruy Lyra da Silva Filho" -> RLSF, surname Silva."""
     parts = name.split()
-    core = [p for p in parts if p.lower() not in PARTICLES]
+    if len(parts) <= 2:
+        core = parts
+    else:
+        core = [parts[0]] + [p for p in parts[1:-1] if p.lower() not in PARTICLES] + [parts[-1]]
     named = [p for p in core if p.lower().rstrip(".") not in SUFFIXES]
-    return parts[0], (named[-1] if len(named) > 1 else parts[-1]), core
+    return parts[0], (named[-1] if len(named) > 1 else core[-1]), core
+
+
+def surname(name: str) -> str:
+    return name_parts(name)[1]
+
+
+# A middle part of a name: an initial, a capitalised name, or a particle. Never an ordinary word,
+# so "Maren thanked Dr. Okafor" doesn't prove a page is about Maren Okafor.
+_MIDDLE = r"(?:[A-Z][\w'’\-]*\.?|da|de|do|dos|das|van|von|der|den|del|della|di|du|le|la|bin)"
 
 
 def person_patterns(name: str) -> tuple[re.Pattern, re.Pattern]:
@@ -184,8 +227,8 @@ def person_patterns(name: str) -> tuple[re.Pattern, re.Pattern]:
     first, last, core = name_parts(name)
     L, F = re.escape(last), re.escape(first)
     strong = re.compile(
-        rf"\b{F}\s+(?:\S+\s+){{0,3}}{L}\b|\b{first[0]}\.\s*(?:[A-Z]\.\s*){{0,3}}{L}\b|\b{L},\s+{F}\b"
-        rf"|\b{L},?\s+{first[0]}\.?(?:[A-Z]\.?){{0,3}}(?![a-z])"
+        rf"\b{F}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{L}\b|\b{first[0]}\.[ \t]*(?:[A-Z]\.[ \t]*){{0,3}}{L}\b"
+        rf"|\b{L},[ \t]+{F}\b|\b{L},?[ \t]+{first[0]}\.?(?:[A-Z]\.?){{0,3}}(?![a-z])"
     )
     initials = r"\.?\s?".join(p[0] for p in core)
     clause = re.compile(rf"\b{L}\b|(?<![A-Za-z]){initials}\.?(?![A-Za-z])")
@@ -231,7 +274,7 @@ def keyword_for(seg: str, pos: int) -> str:
     return m.group(1).lower()
 
 
-ATTRIBUTION = ("full name", "surname", "initials", "continuation", "pronoun")  # strongest first
+ATTRIBUTION = ("full name", "surname + initial", "surname", "initials", "continuation", "pronoun")  # strongest first
 
 
 def person_statements(text: str, name: str) -> list[tuple[str, str, str]]:
@@ -240,38 +283,57 @@ def person_statements(text: str, name: str) -> list[tuple[str, str, str]]:
       * continues their sentence after a semicolon without a new subject
         ("Dr X has received fees from A; personal fees from B") -> "continuation", or
       * starts with he/she/they right after a sentence about them -> "pronoun".
-    The quote is the whole sentence when short enough, else the clause."""
+    matched_by records how the statement named the person: "full name", "surname + initial"
+    ("Okafor M", "M. Okafor"), "surname", "initials", "continuation" or "pronoun".
+    The quote covers only this person's own words: from where their run of clauses starts in the
+    sentence to the end of the current clause, or just their segment when someone else shares the
+    clause. It is always an exact slice of the page (at most 600 characters), so it verifies."""
     strong, clause_pat = person_patterns(name)
-    surname = re.compile(rf"\b{re.escape(name_parts(name)[1])}\b")
+    first, last, _ = name_parts(name)
+    full_re = re.compile(rf"\b{re.escape(first)}[ \t]+(?:{_MIDDLE}[ \t]+){{0,3}}{re.escape(last)}\b"
+                         rf"|\b{re.escape(last)},[ \t]+{re.escape(first)}\b")
+    surname_re = re.compile(rf"\b{re.escape(last)}\b")
 
     def matched_by(seg: str) -> str:
-        if strong.search(seg):
+        if full_re.search(seg):
             return "full name"
+        if strong.search(seg):
+            return "surname + initial"
         if clause_pat.search(seg):
-            return "surname" if surname.search(seg) else "initials"
+            return "surname" if surname_re.search(seg) else "initials"
         return "pronoun" if PRONOUN_START.match(seg) else "continuation"
 
     out, prev_about = [], False
     for sent in split_sentences(text):
         sent_about = False
         carry = prev_about and bool(PRONOUN_START.match(sent))  # "She serves on …" after a sentence about them
-        for part in (p.strip() for p in sent.split(";")):
+        run_start = 0 if carry else None  # where this person's current run of clauses begins
+        for m in re.finditer(r"[^;]+;?", sent):
+            ps, pe = m.start(), m.end()
+            part = sent[ps:pe].strip(" ;")
             if not part:
                 continue
-            quote = sent if len(sent) <= 600 else part[:600]
+            ps += sent[ps:pe].index(part)
             # A pronoun continues the current person; any other opening subject starts someone new.
             new_subject = starts_with_subject(part) and not PRONOUN_START.match(part)
+            segs = segments(part)
             ours = False
-            for i, seg in enumerate(segments(part)):
+            for i, seg in enumerate(segs):
                 if clause_pat.search(seg):
                     ours = True
                 elif i == 0:
                     ours = carry and not new_subject
                 else:
                     ours = False  # a later segment introduced someone else
-                if ours:
-                    out.append((seg, quote, matched_by(seg)))
-                    sent_about = True
+                if not ours:
+                    run_start = None
+                    continue
+                seg_start = ps + part.find(seg)
+                if len(segs) > 1 or run_start is None:
+                    run_start = seg_start  # someone else shares this clause: quote only our part of it
+                quote = sent[run_start:seg_start + len(seg)][:600]
+                out.append((seg, quote, matched_by(seg)))
+                sent_about = True
             carry = ours  # the next semicolon part continues whoever this part ended on
         prev_about = sent_about
     return out
