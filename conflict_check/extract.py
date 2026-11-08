@@ -32,16 +32,23 @@ APPOS_OF = re.compile(rf"\b({NAME})({CREDS})?,\s+of\s+(?:the\s+)?({ORG})")
 WHO = re.compile(rf"\b({NAME})({CREDS})?,\s+who\s+({WHO_VERB}\b[^,.;\n]{{0,80}}?)\s+(?:at|of|for)\s+(?:the\s+)?({ORG})")
 PRE_ROLE = re.compile(rf"(?:\b({ORG})\s+)?\b((?:study\s+|the\s+study['’]s\s+)?{ROLE_WORD})\s+(?:({TITLE})\s+)?({NAME})"
                       rf"(?:\s+of\s+(?:the\s+)?({ORG}))?")
+PRE_ROLE_OTHER = re.compile(rf"\b(CEO|chief executive|president|spokes(?:person|woman|man)|executive director|"
+                            rf"founder|chairman|chairwoman|lobbyist)\s+({NAME})")
+LATER_ROLE = re.compile(rf"\b(?:is|was)\s+(?:an?\s+|the\s+)?([a-z][\w\s\-]{{2,60}}?)\s+(?:at|with|of|for)\s+(?:the\s+)?({ORG})")
 NAME_OF = re.compile(rf"\b({NAME})\s+of\s+(?:the\s+)?({ORG})")
 CREDENTIALED = re.compile(rf"\b({NAME}){CREDS}")
 
-EXPERT_ROLE = re.compile(rf"{ROLE_WORD}|research|scien|physician|director|chief|fellow|dean|lecturer|"
-                         r"specialist|clinician|nurse|pharmacist|analyst|chair|head of|led the", re.I)
+EXPERT_ROLE = re.compile(rf"\b(?:{ROLE_WORD}|research\w*|scien\w*|physician|director|chief|fellow|dean|lecturer|"
+                         r"specialist|clinician|nurse|pharmacist|analyst|chair\w*|head of|led the|\w*ethicist|"
+                         r"veterinarian|virologist|dietitian|psychologist|faculty)\b", re.I)
 NONEXPERT_ROLE = re.compile(r"spokes(?:person|woman|man)|press|communications|\bceo\b|chief executive|executive|"
                             r"official|senator|representative|governor|mayor|secretary|lawmaker|patient|mother|"
                             r"father|resident|student|customer|lobbyist|founder|owner", re.I)
 OFFICIAL_TITLE = re.compile(r"^(?:President|Sen\.?|Senator|Rep\.?|Gov\.?|Governor|Secretary|Mayor|Commissioner|"
                             r"Chairman|Chairwoman)$")
+# Roles that always mean "not an independent expert", even alongside expert-sounding words.
+LEADER_ROLE = re.compile(r"\b(?:spokes(?:person|woman|man)|ceo|chief executive|president|executive director|"
+                         r"lobbyist|founder|press secretary)\b", re.I)
 ORG_WORD = re.compile(r"\b(?:University|Institute|Institutes|College|Hospital|Center|Centre|Clinic|School|"
                       r"Foundation|Association|Society|Laboratory|Laboratories|Labs|Agency|Department|Inc|Corp|"
                       r"Pharmaceuticals?|Therapeutics|Health|Medicine|Council|Academy|Organization|Trust|"
@@ -126,6 +133,10 @@ def extract_experts(text: str, limit: int | None = None) -> list[Expert]:
         name, key = key_of(raw)
         if not name:
             return
+        if re.search(r"\b[Tt]he(?:\s+[a-z\-]+){0,3}\s*$", text[max(0, pos - 40):pos]):
+            return  # "the nonprofit Public Citizen": people aren't "the X"
+        if re.search(r"\b(?:at|of|for|from|with)\s*$", text[max(0, pos - 6):pos]):
+            return  # "Director at Public Citizen wrote": people aren't "at X"
         e = found.get(key)
         if e is None:
             if not cue:
@@ -148,7 +159,8 @@ def extract_experts(text: str, limit: int | None = None) -> list[Expert]:
 
     # Expert cues: these can introduce a person.
     for m in APPOS.finditer(text):
-        if EXPERT_ROLE.search(m.group(3)) or NONEXPERT_ROLE.search(m.group(3)):
+        role_ok = EXPERT_ROLE.search(m.group(3)) or NONEXPERT_ROLE.search(m.group(3))
+        if role_ok or ORG_WORD.search(m.group(4)):
             add(m.group(1), m.start(1), "role", role=m.group(3), aff=m.group(4), creds=m.group(2))
     for m in WHO.finditer(text):
         add(m.group(1), m.start(1), "role", role=f"who {m.group(3)}", aff=m.group(4), creds=m.group(2))
@@ -162,6 +174,8 @@ def extract_experts(text: str, limit: int | None = None) -> list[Expert]:
     for pat in (QUOTED_AFTER, QUOTED_BEFORE, ACCORDING):
         for m in pat.finditer(text):
             add(m.group(2), m.start(2), "quoted", title=m.group(1))
+    for m in PRE_ROLE_OTHER.finditer(text):
+        add(m.group(2), m.start(2), "role", role=m.group(1))
     # Attribute-only patterns: fill in affiliations for people already found.
     for m in APPOS_OF.finditer(text):
         add(m.group(1), m.start(1), "affiliation", aff=m.group(3), creds=m.group(2), cue=False)
@@ -169,11 +183,28 @@ def extract_experts(text: str, limit: int | None = None) -> list[Expert]:
         if ORG_WORD.search(m.group(2)):
             add(m.group(1), m.start(1), "affiliation", aff=m.group(2), cue=False)
 
+    # "Vanstreels ... is a wildlife veterinarian with the University of California": a later
+    # sentence that starts with the surname can supply a missing role and affiliation.
+    for e in found.values():
+        if e.affiliation:
+            continue
+        surname = e.name.split()[-1]
+        for sent in re.split(r"(?<=[.!?])\s+", text):
+            i = sent.find(surname)
+            m = LATER_ROLE.search(sent, i) if i != -1 else None
+            if m and ORG_WORD.search(m.group(2)) and m.start() - i < 160:
+                role = re.split(r"\b(?:is|was)\s+(?:an?\s+|the\s+)?", m.group(1))[-1]
+                e.role = e.role or " ".join(role.split())
+                e.affiliation = clean_org(m.group(2))
+                e.signals.append("affiliation")
+                break
+
     experts = list(found.values())
     for key, e in found.items():
         surname = e.name.split()[-1]
         e.mentions = len(re.findall(rf"\b{re.escape(surname)}\b", text))
-        if key in official or (e.role and NONEXPERT_ROLE.search(e.role) and not EXPERT_ROLE.search(e.role)):
+        if key in official or (e.role and (LEADER_ROLE.search(e.role) or
+                                           (NONEXPERT_ROLE.search(e.role) and not EXPERT_ROLE.search(e.role)))):
             e.kind = "other"
     experts.sort(key=lambda e: (e.kind != "expert", -e.mentions, e.first_pos))
     return experts[:limit] if limit else experts

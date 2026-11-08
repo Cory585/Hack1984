@@ -29,6 +29,18 @@ CASES = [
     ("Anna Price, a spokesperson for Veltrix Pharmaceuticals, said the company was pleased.",
      [("Anna Price", "Veltrix Pharmaceuticals", "other")]),
     ("The study appeared in the Lakeside Medical Journal on Tuesday.", []),
+    # Patterns seen in real health news (fictionalized):
+    ("The nonprofit Patient Watch noted the change. Ana Ruiz, Research Director at Patient Watch wrote in a statement.",
+     [("Ana Ruiz", "Patient Watch", "expert")]),
+    ("The Alliance for Drug Makers's CEO Sam Bell wrote in a statement that his group is pleased.",
+     [("Sam Bell", None, "other")]),
+    ("“It's risky,” its executive director Omar Haddad wrote in a statement.", [("Omar Haddad", None, "other")]),
+    ("Lena Ortiz, a bioethicist at the University of Lakeside, said it was troubling.",
+     [("Lena Ortiz", "University of Lakeside", "expert")]),
+    ("Dr. Ralph Venn studied the colony. “It was grim,” says Venn, who is based in Chile and is a wildlife "
+     "veterinarian with the Northfield University, Davis campus.",
+     [("Ralph Venn", "Northfield University", "expert")]),
+    ("Mira Kollo, a caregiver at a UNICEF-supported nursery in Bunia, said the children were safe.", []),
 ]
 
 
