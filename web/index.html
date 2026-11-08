@@ -75,7 +75,7 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 72px; } /* anchors land below the sticky nav */
 body { margin: 0; color: var(--ink); font: 16px/1.55 var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh;
-  background: var(--page); background-attachment: fixed; }
+  background: var(--bg); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; } a:hover { text-decoration: underline; }
 button, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--accent-3); outline-offset: 3px; }
@@ -259,8 +259,6 @@ details > .tie { margin-top: 10px; }
 
 /* ---------- how it works / limits / footer ---------- */
 .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
-.how .card { padding: 24px; transition: transform .2s; }
-.how .card:hover { transform: translateY(-3px); }
 .how .num { font: 800 32px/1 var(--display); margin-bottom: 10px; background: var(--holo-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .how h4 { font: 700 18px/1.25 var(--display); margin: 0 0 6px; letter-spacing: -.02em; }
 .how p { margin: 0; color: var(--muted); font-size: 15px; }
@@ -365,7 +363,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --floor: rgba(255, 95, 200, .55); --floor-glow: rgba(59, 227, 255, .3); --scan: rgba(0, 0, 0, .22); } }
 
-.bg-fx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.bg-fx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; contain: strict; background: var(--page); }
 /* starburst tile: four-point sparkles + dots, like a 2000s wallpaper */
 .bg-fx::before { content: ""; position: absolute; inset: 0; opacity: .55;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg fill='%23ff3fb4' opacity='.55'%3E%3Cpath d='M30 14l3 11 11 3-11 3-3 11-3-11-11-3 11-3z'/%3E%3C/g%3E%3Cg fill='%237a3cff' opacity='.45'%3E%3Cpath d='M128 96l2 7 7 2-7 2-2 7-2-7-7-2 7-2z'/%3E%3Ccircle cx='96' cy='30' r='1.6'/%3E%3Ccircle cx='160' cy='150' r='1.4'/%3E%3C/g%3E%3Cg fill='%2300c2e8' opacity='.5'%3E%3Ccircle cx='60' cy='140' r='1.8'/%3E%3Cpath d='M150 40l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z'/%3E%3C/g%3E%3C/svg%3E");
@@ -374,15 +372,19 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 .bg-fx::after { content: ""; position: absolute; inset: 0;
   background: repeating-linear-gradient(180deg, var(--scan) 0 1px, transparent 1px 3px); }
 /* drifting iridescent "CD shine" orbs */
-.orb { position: absolute; border-radius: 50%; filter: blur(42px); opacity: .55; will-change: transform; }
+.orb { position: absolute; border-radius: 50%; opacity: .55; will-change: transform;
+  -webkit-mask-image: radial-gradient(closest-side, #000 25%, transparent); mask-image: radial-gradient(closest-side, #000 25%, transparent); }
 .orb.o1 { width: 46vmax; height: 46vmax; left: -14vmax; top: -12vmax; background: conic-gradient(from 20deg, #ff9be6, #c3a6ff, #8fe8ff, #b8ffd9, #ffe59a, #ff9be6);
   animation: drift1 26s ease-in-out infinite alternate; }
 .orb.o2 { width: 38vmax; height: 38vmax; right: -12vmax; top: 18vh; background: conic-gradient(from 200deg, #8fe8ff, #ff9be6, #c3a6ff, #8fe8ff);
   animation: drift2 32s ease-in-out infinite alternate; }
 .orb.o3 { width: 34vmax; height: 34vmax; left: 30vw; bottom: -18vmax; background: conic-gradient(from 90deg, #c3a6ff, #ffe59a, #ff9be6, #c3a6ff);
   animation: drift3 38s ease-in-out infinite alternate; }
-:root[data-theme="dark"] .orb { opacity: .32; mix-blend-mode: screen; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .orb { opacity: .32; mix-blend-mode: screen; } }
+:root[data-theme="dark"] .orb { opacity: .3; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .orb { opacity: .3; } }
+/* Animation budget: everything pauses while the tab is hidden, and phones/touch devices get a still background. */
+.paused .orb, .paused .hero::after, .paused .spark, .paused .hero h1 .holo { animation-play-state: paused; }
+@media (max-width: 700px), (pointer: coarse) { .bg-fx .orb, .hero::after, .hero h1 .holo, .hero .spark { animation: none; } .bg-fx::after { display: none; } } /* .bg-fx .orb outranks .orb.o1 */
 @keyframes drift1 { to { transform: translate(8vw, 10vh) rotate(160deg) scale(1.08); } }
 @keyframes drift2 { to { transform: translate(-10vw, 14vh) rotate(-140deg) scale(.92); } }
 @keyframes drift3 { to { transform: translate(-6vw, -12vh) rotate(120deg) scale(1.1); } }
@@ -402,13 +404,13 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 
 /* holographic band behind How it works */
 #how { position: relative; }
-#how::before { content: ""; position: absolute; z-index: -1; left: 50%; width: 100vw; transform: translateX(-50%); top: 0; bottom: 0;
-  background: linear-gradient(120deg, rgba(255, 155, 230, .22), rgba(143, 232, 255, .22) 45%, rgba(195, 166, 255, .22));
-  border-block: 1px solid var(--rule-soft); }
-:root[data-theme="dark"] #how::before { background: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #how::before {
-  background: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)); } }
-body { overflow-x: clip; } /* the full-bleed band must not cause sideways scroll; clip keeps the sticky nav working */
+/* Full-bleed band: border-image outset paints past the container without adding scrollable width. */
+#how { border-image: linear-gradient(120deg, rgba(255, 155, 230, .22), rgba(143, 232, 255, .22) 45%, rgba(195, 166, 255, .22)) fill 0 / / 0 100vw; }
+:root[data-theme="dark"] #how { border-image: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)) fill 0 / / 0 100vw; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #how {
+  border-image: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)) fill 0 / / 0 100vw; } }
+body { overflow-x: clip; } /* belt and braces against sideways scroll; clip keeps the sticky nav working */
+@supports not (overflow: clip) { body { overflow-x: hidden; } } /* body overflow propagates to the viewport, so sticky still works */
 
 /* Continuous (squircle) corners on every rounded rectangle and pill, where supported.
    Squircles look tighter than circular arcs at the same radius, so radii are bumped slightly.
@@ -572,15 +574,15 @@ body { overflow-x: clip; } /* the full-bleed band must not cause sideways scroll
       <article class="card how-card" style="view-transition-name: how-4">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-4">
           <div class="num">04</div><h4>Check the money</h4>
-          <p>CMS Open Payments confirms payments from the same company to a physician with that name, shown with location so you can judge.</p>
+          <p>CMS Open Payments confirms payments from the same company to a clinician with that name, shown with location so you can judge.</p>
           <span class="open-hint">Read more ›</span></button>
         <div class="more" id="how-more-4" hidden>
           <div><h5>What it adds</h5><ul>
-            <li>For each tie already found, it looks up 2024–2025 payments from that company to a physician with that name.</li>
+            <li>For each tie already found, it looks up <span data-op-years>2024 and 2025</span> payments from that company to a clinician with that name.<span data-op-off hidden> (Turned off on this server.)</span></li>
             <li>The badge shows total, number of payments, payment types, city, state and NPI.</li></ul></div>
           <div><h5>What it won't do</h5><ul>
             <li>Create a tie on its own. It only supports one found in papers or bios.</li>
-            <li>Show a badge when several physicians with that name were paid. That's ambiguous, so it's withheld.</li>
+            <li>Show a badge when several clinicians with that name were paid. That's ambiguous, so it's withheld.</li>
             <li>Prove identity. Open Payments lists location, not employer, so check the city.</li></ul></div>
           <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
@@ -633,7 +635,7 @@ body { overflow-x: clip; } /* the full-bleed band must not cause sideways scroll
         <div class="more" id="lim-more-3" hidden>
           <div><h5>What the data covers</h5><ul>
             <li>Payments from drug and device makers to US physicians, teaching hospitals and, since 2021, some other prescribers such as nurse practitioners and physician assistants.</li>
-            <li>Conflict Check looks at the 2024 and 2025 general payments. Companies report these, and the figures can be disputed.</li>
+            <li><span data-op-on>Conflict Check looks at the <span data-op-years>2024 and 2025</span> general payments.</span><span data-op-off hidden>Open Payments badges are turned off on this server.</span> Companies report these payments, and the figures can be disputed.</li>
             <li>Researchers outside the US, and payments from non-manufacturers, aren't in it.</li></ul></div>
           <div><h5>Why it's only a badge</h5><ul>
             <li>Records list name, city and state, not employer, so a name match can be a different person.</li>
@@ -702,7 +704,19 @@ media.addEventListener?.("change", paintThemeButton);
 paintThemeButton();
 
 /* ---------- config: stale-while-revalidate ---------- */
-function applyConfig(c) { if (c && !$("replay").dataset.touched) $("replay").checked = !!c.replay_default; }
+function applyConfig(c) {
+  if (!c) return;
+  if (!$("replay").dataset.touched) $("replay").checked = !!c.replay_default;
+  const op = c.open_payments;  // the Open Payments copy follows the server's configuration
+  if (op) {
+    const years = op.years || [], list = years.length > 1 ? years.slice(0, -1).join(", ") + " and " + years[years.length - 1] : years.join("");
+    document.querySelectorAll("[data-op-years]").forEach(el => { if (list) el.textContent = list; });
+    document.querySelectorAll("[data-op-on]").forEach(el => el.hidden = !op.enabled);
+    document.querySelectorAll("[data-op-off]").forEach(el => el.hidden = !!op.enabled);
+  }
+}
+// Animation budget: pause the decorative background while the tab is hidden.
+document.addEventListener("visibilitychange", () => document.documentElement.classList.toggle("paused", document.hidden));
 applyConfig(store.get("cc-config"));                       // stale: instant
 fetch("/api/config").then(r => r.json()).then(c => { store.set("cc-config", c); applyConfig(c); }).catch(() => {}); // revalidate
 $("replay").addEventListener("change", () => { $("replay").dataset.touched = "1"; });
