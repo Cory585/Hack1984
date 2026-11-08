@@ -91,7 +91,7 @@ NOT_ORGS = {
     "denmark", "israel", "japan", "switzerland", "suisse", "geneva", "germany", "france", "italy", "spain", "china",
     "india", "australia", "netherlands", "sweden", "norway", "brazil", "korea", "singapore", "ireland", "belgium",
     "austria", "finland", "poland", "mexico", "taiwan", "montreal", "toronto", "paris", "berlin", "tokyo",
-    "thanks", "brain", "louis", "directors", "chair", "diplomate", "neuroengineering", "jennifer",
+    "cardiology", "oncology", "neurology", "psychiatry", "surgery", "transplant", "amyloidosis", "thanks", "brain", "louis", "directors", "chair", "diplomate", "neuroengineering", "jennifer",
     "social", "sciences", "aging", "medicine", "preventive", "epidemiology", "cardiovascular", "associate",
     "assistant", "medical", "population", "magerstadt", "clinical", "research",
 }
@@ -104,6 +104,13 @@ CERTIFIER = re.compile(r"^American Board\b|\bboard of directors\b|\bdiplomate\b"
 AWARD_WORDS = {"grant", "grants", "award", "awards", "fellowship", "scholarship", "funding", "prize"}
 # A new clause about the person, not about who pays: ", and her work has appeared in …"
 CLAUSE_CUT = re.compile(r",\s*(?:and\s+|but\s+|while\s+)?(?=(?:he|she|they|his|her|their)\b)", re.I)
+# Roles and committees, not payers: "Associate Editor of JAMA Cardiology", "Joint Committee", "R-and U-level".
+NON_PAYER = re.compile(r"\b(?:committees?|guidelines?|working\s+group|editors?|editorial|chair|level)\b|-level\b", re.I)
+# A colleague named with credentials: "[Mandar Aras, MD, PhD]" is a person, not an organization.
+CREDENTIALS = re.compile(r"^[,\s]*(?:MD|M\.D\.|PhD|DO|MPH|MSc|MBBS|RN|FACC|DPhil)\b")
+# Units of a university or hospital. A job there ("director of the Center for X") is not an outside tie.
+UNIT_WORDS = re.compile(r"\b(?:center|centre|program|programme|institute|department|division|laborator(?:y|ies)|"
+                        r"lab|clinic|hospital|school|fellowship|training|service)\b", re.I)
 # These ties describe a job; at the expert's own employer (or a unit of it) they are not an outside tie.
 JOB_CATEGORIES = {"board", "employment"}
 PARTICLES = {"da", "de", "do", "dos", "das", "van", "von", "der", "den", "del", "della", "di", "du", "le", "la", "bin"}
@@ -193,6 +200,17 @@ def mentions_affiliation(affiliation: str, text: str) -> bool:
     words = [w for w in re.findall(r"[A-Za-z][\w'’\-]*", affiliation) if w.lower() not in CONNECTORS]
     acronym = "".join(w[0] for w in words).upper()
     return len(acronym) >= 3 and bool(re.search(rf"\b{acronym}\b", text))
+
+
+def is_employer(org: str, employer: str) -> bool:
+    """The expert's own institution, however it is spelled: 'UCSF', 'UC San Francisco', or the full name."""
+    if same_org(org, employer) or same_company(org, employer):
+        return True
+    words = [w for w in re.findall(r"[A-Za-z][\w'’\-]*", employer) if w.lower() not in CONNECTORS]
+    acronym = "".join(w[0] for w in words).upper()
+    lead = re.sub(r"^(?:UC|University of California)\s+", "", org, flags=re.I)
+    return (len(acronym) >= 3 and org.strip(". ") == acronym) or \
+        (lead != org and same_org(lead, re.sub(r"^University of California\s+", "", employer, flags=re.I)))
 
 
 def same_org(a: str, b: str) -> bool:
@@ -310,6 +328,8 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
         if "_" in org or re.match(r"(?:division|department|us)\b", org, re.I):
             continue  # wiki link slugs ("Hedge_fund"), units of a university, "All of Us" fragments
         if all(t.lower().strip(".,") in NOT_ORGS | CONNECTORS for t in toks):
+            continue
+        if CREDENTIALS.match(text[m.end():]) or NON_PAYER.search(org):
             continue
         if (JOURNAL.search(org) or CODE_NAME.fullmatch(org) or GRANT_ID.search(org) or CERTIFIER.search(org)
                 or toks[-1].lower() in AWARD_WORDS):
@@ -446,12 +466,13 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
                     found += [(o, at + p, piece, at) for o, p in orgs_in(piece, name)]
             for org, pos, piece, at in found:
                 org = acr.get(org, org)  # "NIH" -> "National Institutes of Health"
-                if any(same_org(org, ex) or same_company(org, ex) for ex in exclude_orgs):
+                if any(is_employer(org, ex) for ex in exclude_orgs):
                     continue
                 pos -= at
                 rel = keyword_for(piece, pos)
-                if category(rel) in JOB_CATEGORIES and any(mentions_org(ex, piece) for ex in exclude_orgs):
-                    continue  # "Director of the Center for X at <their own university>": a unit of the employer
+                if category(rel) in JOB_CATEGORIES and (
+                        UNIT_WORDS.search(org) or any(mentions_org(ex, piece) for ex in exclude_orgs)):
+                    continue  # "Director of the Center for X": a unit of a university or hospital, not a payer
                 # Merge spellings of one company ("AstraZeneca" / "Astra Zeneca", "Lilly" / "Eli Lilly").
                 tie = next((t for t in ties if same_company(t["org"], org)), None)
                 if tie is None:

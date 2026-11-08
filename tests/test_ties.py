@@ -310,3 +310,23 @@ class TestExaHighlights(unittest.TestCase):
         self.assertIn("Veltrix Pharmaceuticals", t)
         self.assertTrue(t["Veltrix Pharmaceuticals"]["evidence"][0]["verified"])
         self.assertEqual(with_highlights({"text": "x"}), "x")
+
+
+class TestRoleNoise(unittest.TestCase):
+    def test_role_text_is_not_a_tie(self):
+        t = ties("Maren Okafor serves as Director of the Center for Population Science and Associate Editor of "
+                 "JAMA Cardiology; she collaborates with her program director, now colleague Liviu Klein, MD, PhD, "
+                 "and is supported by multiple R-and U-level grants from the Halden Foundation and a "
+                 "Joint Committee on Practice Guidelines.")
+        self.assertEqual(set(t), {"Halden Foundation"})
+
+    def test_a_director_role_at_a_company_is_still_a_tie(self):
+        self.assertIn("Halden Biotech", ties("Maren Okafor is a director of Halden Biotech."))
+
+
+class TestEmployerSpellings(unittest.TestCase):
+    def test_own_institution_under_other_spellings_is_not_a_tie(self):
+        for spelling in ("UCSF", "UC San Francisco", "University of California San Francisco"):
+            page = f"Maren Okafor is supported by grants from {spelling} and from Halden Biotech."
+            self.assertEqual(set(ties(page, exclude=["University of California San Francisco"])), {"Halden Biotech"},
+                             spelling)
