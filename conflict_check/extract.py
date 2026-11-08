@@ -54,7 +54,7 @@ ORG_WORD = re.compile(r"\b(?:University|Institute|Institutes|College|Hospital|Ce
                       r"Pharmaceuticals?|Therapeutics|Health|Medicine|Council|Academy|Organization|Trust|"
                       r"Network|Company|Group|Journal|Times|Post|News|Reuters)\b")
 
-LEAD_STOP = {"The", "A", "An", "In", "But", "And", "He", "She", "They", "It", "This", "That", "When", "While",
+LEAD_STOP = {"Not", "The", "A", "An", "In", "But", "And", "He", "She", "They", "It", "This", "That", "When", "While",
              "If", "According", "Researchers", "Experts", "Officials", "Scientists", "Doctors", "Study", "New",
              "Dr", "Dr.", "Prof", "Prof.", "Professor", "Mr", "Mr.", "Ms", "Ms.", "Mrs", "Mrs."}
 TRAIL_STOP = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "January",

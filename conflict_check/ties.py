@@ -88,6 +88,8 @@ NOT_ORGS = {
     "chicago", "seattle", "pittsburgh", "rochester", "cleveland", "ca", "ma", "ny", "tx", "fl", "dc",
     "prnewswire", "newswire", "businesswire", "reuters", "wikipedia", "twitter", "linkedin", "youtube",
     "program", "initiative", "translational", "science",
+    "social", "sciences", "aging", "medicine", "preventive", "epidemiology", "cardiovascular", "associate",
+    "assistant", "medical", "population", "magerstadt", "clinical", "research",
 }
 CONNECTORS = {"of", "for", "the", "and", "&", "do", "da", "de"}
 PARTICLES = {"da", "de", "do", "dos", "das", "van", "von", "der", "den", "del", "della", "di", "du", "le", "la", "bin"}
@@ -271,8 +273,8 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
         toks = org.split()
         if not toks or all(t.lower() in LEAD_STOP for t in toks):
             continue
-        if any(t.lower().strip(".,") in person_toks for t in toks):
-            continue
+        if any(re.sub(r"['’]s$", "", t.lower().strip(".,")) in person_toks for t in toks):
+            continue  # the person's own name, including "Khan's"
         if re.fullmatch(r"(?:[A-Z]\.\s?){1,5}|[A-Z]", org):  # dotted initials: "J.L."
             continue
         if re.fullmatch(r"[A-Z]+[a-z][A-Z]+", org):  # mixed-case initials: "SvLS"
