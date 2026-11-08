@@ -219,7 +219,8 @@ textarea.field { min-height: 180px; resize: vertical; line-height: 1.5; }
 .c-pay { color: var(--badge-ink); font-weight: 600; font-size: var(--fs-xs); margin-left: var(--sp-2); }
 .conn-body { display: grid; gap: var(--sp-3); padding: 0 0 var(--sp-4); }
 .conn[open] > summary .c-snip { display: none; }
-.verdict { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.verdict { margin: 0; font-size: var(--fs-base); color: var(--ink); line-height: 1.45; }
+.r-head .chip { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-4); }
 .tie-note { margin: calc(var(--sp-2) * -1) 0 0; }
 blockquote.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .q-more { all: unset; cursor: pointer; color: var(--accent); font-size: var(--fs-sm); font-weight: 700; margin-top: calc(var(--sp-2) * -1); }
@@ -603,7 +604,8 @@ blockquote { text-indent: -.42em; }               /* hang the opening quote mark
         <div class="preview-stack" inert>
           <article class="card result">
             <div class="r-head"><div><h3>Maren Okafor</h3><div class="who">Cardiologist, Lakeside University</div></div>
-              <span class="chip connections_found">1 connection not in the article</span></div>
+              <span class="chip connections_found">Connected</span></div>
+            <p class="verdict">Has a financial connection the article didn't mention: Veltrix Pharmaceuticals.</p>
             <h4 class="tie-group">Not in the article</h4>
             <div class="tie"><div class="tie-head"><b>Veltrix Pharmaceuticals</b><span class="tag">consulting</span><span class="rel strong">Strong · 100</span></div>
               <blockquote>“M.O. reports consulting fees from Veltrix Pharmaceuticals.”<span class="src">Journal of Cardiac Care · 2025 · via exa</span></blockquote>
@@ -812,10 +814,10 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const MAX = 5;
 const SHOWN = 5;  // connections shown per expert before "Show the other N"
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-const statusLabel = e => e.status === "connections_found"
-  ? `${plural((e.ties || []).length, "connection")} not in the article` : STATUS[e.status] || e.status;
-const STATUS = { connections_found: "Connections not in the article", no_confirmed_connections: "No confirmed connections",
-  identity_not_confirmed: "Identity not confirmed", error: "Error", checking: "Checking" };
+const STATUS = { connections_found: "Connected", no_confirmed_connections: "No connections found",
+  identity_not_confirmed: "Can't verify who this is", error: "Check failed", checking: "Checking" };
+const statusLabel = e => e.status === "connections_found" && !(e.ties || []).some(t => (t.reliability || {}).label !== "Weak")
+  ? "Possibly connected" : STATUS[e.status] || e.status;
 const STEPS = [["identity", "Identity", ["orcid"]], ["papers", "Papers", ["exa"]], ["web", "Web", ["tavily"]], ["payments", "Payments", ["openpayments"]]];
 const state = { article: null, experts: [], results: {}, calls: [], mode: "url", demo: false, demoText: null,
   gen: 0, active: 0, swrKey: null };
@@ -1140,7 +1142,7 @@ function errorBox(msg, retryAct) {
 function summaryText() {
   const lines = [`Conflict Check: ${state.article?.url || "pasted article"}${state.article?.demo ? " (demo, fictional data)" : ""}`, ""];
   for (const e of Object.values(state.results)) {
-    lines.push(`${e.name}${e.affiliation ? ", " + e.affiliation : ""}: ${STATUS[e.status] || e.status}`);
+    lines.push(`${e.name}${e.affiliation ? ", " + e.affiliation : ""}: ${statusLabel(e)}`);
     for (const t of e.ties || []) lines.push(`  - ${t.org} (${t.category || t.relation}; ${t.related_to_story ? "named in this story" : "not named in this story"}${t.reliability ? `; ${t.reliability.label} ${t.reliability.score}/100` : ""}): ${t.evidence[0]?.url || ""}`);
     if (e.coverage) lines.push(`  Coverage: ${e.coverage.label} ${e.coverage.score}/100`);
   }
@@ -1295,6 +1297,16 @@ function pendingHtml(e) {
     <span class="skel line" style="width:80%"></span><span class="skel block"></span><span class="skel line" style="width:40%"></span>
   </article>`;
 }
+function verdictHtml(e, top, ties) {  // one plain sentence under the name: is this person connected or not?
+  if (e.status === "connections_found") {
+    const names = top.slice(0, 3).map(t => esc(t.org)), more = ties.length - names.length;
+    return `<p class="verdict">Has ${ties.length === 1 ? "a financial connection" : plural(ties.length, "financial connection")} the article didn't mention: <b>${names.join(", ")}</b>${more > 0 ? ` and ${more} more` : ""}.</p>
+      <p class="hint">Strongest first. Select a row for the quotes and why it scored that way.</p>`;
+  }
+  if (e.status === "no_confirmed_connections")
+    return `<p class="verdict">Nothing found in papers, bios or payment records. That doesn't prove there is nothing.</p>`;
+  return "";
+}
 function cardHtml(e) {
   if (e.status === "checking") return pendingHtml(e);
   const ties = e.ties || [];
@@ -1312,7 +1324,7 @@ function cardHtml(e) {
       <div>${e.stale ? `<span class="updating"><span class="spinner" aria-hidden="true"></span>Updating</span> ` : ""}<span class="chip ${e.status}">${esc(statusLabel(e))}</span></div></div>
     ${identityHtml(e)}
     ${e.error ? `<p class="msg" style="text-align:left">${esc(e.error)}</p>` : ""}
-    ${ties.length ? `<p class="verdict">Strongest first. Select one for the quotes and why it scored that way.</p>` : ""}
+    ${verdictHtml(e, top, ties)}
     ${top.map(t => tieHtml(t, t.related_to_story ? "" : "other")).join("")}
     ${rest.length ? `<details class="rest"><summary>Show the other ${rest.length}${weak ? ` (${weak} weak)` : ""}</summary>${rest.map(t => tieHtml(t, t.related_to_story ? "" : "other")).join("")}</details>` : ""}
     ${(e.disclosed || []).length ? `<details><summary>${plural(e.disclosed.length, "connection")} the article already mentioned</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}

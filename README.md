@@ -62,10 +62,10 @@ Each expert ends in one of these states:
 
 | Status | Meaning |
 |---|---|
-| N connections not in the article | Verified ties found. Ties to companies named in the story are shown first under **Not in the article**; ties to other companies are behind "Show N more", and ties the article already mentioned are in a separate collapsed section. |
-| No confirmed connections | Identity confirmed, nothing found. A normal result. |
-| Identity not confirmed | ORCID didn't return exactly one match. No search is run and no ties are shown. |
-| Error | The evidence search failed (e.g. a missing key or a replay-mode cache miss). The identity result is still shown. |
+| Connected (or Possibly connected when only weak matches) | Verified connections the article didn't mention were found. The card names the top companies in one sentence, then lists them strongest first. Ones the article already mentioned are in a separate collapsed section. |
+| No connections found | Identity confirmed, nothing found. A normal result. |
+| Can't verify who this is | Neither ORCID nor OpenAlex singled out one person. No search is run and no ties are shown. |
+| Check failed | The evidence search failed (e.g. a missing key or a replay-mode cache miss). The identity result is still shown. |
 
 **Mask names** replaces each expert's name with "Expert A", "Expert B" and so on everywhere on the page. Use it on stage.
 
@@ -91,7 +91,7 @@ flowchart TD
     F -->|Check selected experts| G[[Skeleton cards + step tracker<br/>Identity → Papers → Web → Payments<br/>API activity streams live]]
     G -->|"seen before (stale-while-revalidate)"| G1[Last result shown instantly,<br/>marked Updating] --> G
     G --> H["② Results, one card per expert"]
-    H --> S1[Connections not in the article<br/>quotes · sources · Open Payments badge]
+    H --> S1[Connected<br/>quotes · sources · Open Payments badge]
     H --> S2[No confirmed connections]
     H --> S3[Identity not confirmed]
     H --> S4[Error]
