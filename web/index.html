@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Conflict Check</title>
+<style>
+:root { --bg:#f6f7f9; --surface:#fff; --surface-2:#f0f3f7; --ink:#14181f; --ink-2:#4a5260; --muted:#7a8291;
+  --rule:#e2e5ea; --accent:#1c5cab; --flag:#c8372d; --ok:#2f8f4e; --warn:#d08a00;
+  --mono: ui-monospace, Consolas, monospace; }
+@media (prefers-color-scheme: dark) { :root { --bg:#111418; --surface:#181c22; --surface-2:#1f242c; --ink:#e9ecf1;
+  --ink-2:#aeb5c1; --muted:#828a97; --rule:#2a3039; --accent:#86b6ef; --flag:#ef6a5f; --ok:#57b874; --warn:#e8a93a; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, "Segoe UI", sans-serif; }
+.wrap { max-width:1200px; margin:0 auto; padding:28px 16px 48px; display:grid; gap:20px;
+  grid-template-columns: minmax(0,1fr) 340px; align-items:start; }
+@media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+header, form, .scope { grid-column: 1 / -1; }
+h1 { margin:0; font-size:28px; } .lede { margin:4px 0 0; color:var(--ink-2); max-width:70ch; }
+form { background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:16px; display:grid; gap:10px; }
+input[type=url], textarea { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--rule); border-radius:6px;
+  background:var(--bg); color:var(--ink); }
+textarea { min-height:120px; resize:vertical; }
+.row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+button { font:600 14px system-ui; padding:8px 16px; border-radius:6px; border:0; background:var(--accent); color:#fff; cursor:pointer; }
+button:disabled { opacity:.6; cursor:wait; }
+label { color:var(--ink-2); font-size:14px; }
+.scope { color:var(--muted); font-size:13px; margin:0; }
+.card { background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:14px 16px; display:grid; gap:8px; }
+.card h3 { margin:0; font-size:18px; } .sub { color:var(--ink-2); font-size:14px; margin:0; }
+.status { font:600 11px/1 system-ui; letter-spacing:.05em; text-transform:uppercase; padding:4px 8px; border-radius:999px;
+  border:1px solid currentColor; justify-self:start; }
+.connections_found { color:var(--flag); } .no_confirmed_connections { color:var(--ok); }
+.identity_not_confirmed, .error { color:var(--warn); }
+.tie { border-left:3px solid var(--flag); padding:6px 10px; background:var(--surface-2); border-radius:0 6px 6px 0; }
+.tie.other { border-left-color:var(--muted); } .tie.disc { border-left-color:var(--ok); }
+.tie b { font-size:15px; } .tag { font-size:12px; color:var(--muted); margin-left:6px; }
+blockquote { margin:6px 0 0; font-size:13.5px; color:var(--ink-2); }
+blockquote a { color:var(--accent); font-size:12px; }
+details summary { cursor:pointer; color:var(--ink-2); font-size:14px; }
+#results { display:grid; gap:14px; min-width:0; }
+aside { background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:12px; position:sticky; top:12px; }
+aside h2 { font-size:14px; text-transform:uppercase; letter-spacing:.06em; margin:0 0 8px; color:var(--ink-2); }
+#calls { font:12px/1.4 var(--mono); display:grid; gap:4px; max-height:70vh; overflow:auto; }
+.call { display:grid; grid-template-columns: 52px 1fr; gap:6px; padding:4px 0; border-top:1px solid var(--rule); }
+.api { font-weight:700; } .api.tavily { color:#1c8a7a; } .api.exa { color:#7a4fd0; } .api.orcid { color:#8a9a1c; }
+.src { color:var(--muted); } .src.miss, .src.error { color:var(--flag); }
+.err { color:var(--flag); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Conflict Check</h1>
+    <p class="lede">Paste a health news article. For each quoted expert, Conflict Check confirms who they are, then searches papers and the web for funding, consulting and board ties the article didn't mention, quoting the source for every one.</p>
+  </header>
+
+  <form id="f">
+    <input type="url" id="url" placeholder="Article URL (fetched with Tavily extract)">
+    <textarea id="text" placeholder="…or paste the article text"></textarea>
+    <div class="row">
+      <button id="go" type="submit">Check experts</button>
+      <label><input type="checkbox" id="replay"> Replay mode (cached responses only)</label>
+      <label><input type="checkbox" id="mask"> Mask names</label>
+      <span id="msg" class="err"></span>
+    </div>
+  </form>
+  <p class="scope" id="scope"></p>
+
+  <main id="results"></main>
+  <aside><h2>API calls</h2><div id="calls"><span class="src">No calls yet.</span></div></aside>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const STATUS = { connections_found: "Connections the article didn't mention",
+  no_confirmed_connections: "No confirmed connections", identity_not_confirmed: "Identity not confirmed", error: "Error" };
+let last = null;
+
+fetch("/api/config").then(r => r.json()).then(c => { $("replay").checked = c.replay_default; }).catch(() => {});
+
+function masker(data) {
+  if (!$("mask").checked) return s => esc(s);
+  const names = data.experts.map((e, i) => [e.name, "Expert " + String.fromCharCode(65 + i)]);
+  return s => { let t = String(s ?? "");
+    for (const [n, a] of names) { const parts = n.split(" ");
+      for (const p of [n, parts[parts.length - 1]]) t = t.split(p).join(a); }
+    return esc(t); };
+}
+
+function tieHtml(t, cls, m) {
+  const ev = t.evidence.map(e => `<blockquote>“${m(e.quote)}”<br><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title || e.url)}</a> <span class="tag">via ${esc(e.api)}</span></blockquote>`).join("");
+  const tag = cls === "disc" ? "disclosed in article" : t.related_to_story ? "related to this story" : "not named in this story";
+  return `<div class="tie ${cls}"><b>${esc(t.org)}</b><span class="tag">${esc(t.relation)} · ${tag}</span>${ev}</div>`;
+}
+
+function render(data) {
+  last = data; const m = masker(data);
+  $("scope").textContent = data.scope_note;
+  $("results").innerHTML = data.experts.length ? data.experts.map(e => {
+    const related = e.ties.filter(t => t.related_to_story), other = e.ties.filter(t => !t.related_to_story);
+    const idn = e.identity ? `<p class="sub">Identity: ${m(e.identity.reason)}${e.identity.orcid ? ` (ORCID <a href="https://orcid.org/${esc(e.identity.orcid)}" target="_blank" rel="noopener">${esc(e.identity.orcid)}</a>)` : ""}</p>` : "";
+    return `<section class="card">
+      <h3>${m(e.name)}</h3>
+      <p class="sub">${m([e.role, e.affiliation].filter(Boolean).join(", ") || "No role or affiliation given")}</p>
+      <span class="status ${e.status}">${STATUS[e.status] || e.status}</span>
+      ${idn}
+      ${e.error ? `<p class="err">${esc(e.error)}</p>` : ""}
+      ${related.map(t => tieHtml(t, "", m)).join("")}
+      ${other.length ? `<details><summary>${other.length} other connection(s), not named in this story</summary>${other.map(t => tieHtml(t, "other", m)).join("")}</details>` : ""}
+      ${e.disclosed && e.disclosed.length ? `<details><summary>${e.disclosed.length} connection(s) the article did disclose</summary>${e.disclosed.map(t => tieHtml(t, "disc", m)).join("")}</details>` : ""}
+      ${e.pages_checked != null ? `<p class="sub">${e.pages_checked} pages checked.</p>` : ""}
+    </section>`; }).join("") + (data.skipped_experts.length ? `<p class="scope">Not checked (limit of 5): ${m(data.skipped_experts.join(", "))}</p>` : "")
+    : `<p class="sub">No quoted experts found in this article.</p>`;
+  $("calls").innerHTML = data.calls.map(c => `<div class="call"><span class="api ${c.api}">${c.api}</span>
+    <span>${m(c.label)}<br><span class="src ${c.source}">${c.source} · ${c.ms} ms${c.error ? " · " + esc(c.error) : ""}</span></span></div>`).join("") || `<span class="src">No calls.</span>`;
+}
+
+$("mask").addEventListener("change", () => last && render(last));
+$("f").addEventListener("submit", async ev => {
+  ev.preventDefault(); $("msg").textContent = ""; $("go").disabled = true; $("go").textContent = "Checking…";
+  try {
+    const r = await fetch("/api/check", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ url: $("url").value.trim(), text: $("text").value, replay: $("replay").checked }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    render(data);
+  } catch (e) { $("msg").textContent = e.message; }
+  finally { $("go").disabled = false; $("go").textContent = "Check experts"; }
+});
+</script>
+</body>
+</html>
