@@ -4,6 +4,8 @@
 
 Surge track (Tavily + Exa). Scope: health news, where research papers carry conflict-of-interest statements.
 
+**Contents:** [Quick start](#quick-start) · [How it works](#how-it-works) · [Using the app](#using-the-app) · [Reliability](#reliability-ratings) · [Safety rules](#safety-rules-from-the-risk-review) · [Demo](#demo) · [Reference](#reference) · [Project layout](#project-layout)
+
 ## Quick start
 
 Python 3.10+, no third-party packages.
@@ -15,7 +17,37 @@ python -m unittest                # offline tests (fictional fixtures)
 python tests/e2e/walk.py          # browser walk-through (needs Edge/Chrome and a running server)
 ```
 
-ORCID and CMS Open Payments are free public APIs and need no key.
+ORCID and CMS Open Payments are free public APIs and need no key. No keys at all? Click **Try the demo** in the app.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Article<br/>URL or text] --> B[Extract experts<br/>rule-based]
+    B --> R[You review<br/>fix · add · untick]
+    R --> I{Identity<br/>exactly one<br/>ORCID match?}
+    I -->|no| U[Identity not confirmed<br/>nothing is searched]
+    U -->|you pick a candidate| I
+    I -->|yes| P[Gather pages<br/>Exa papers · Tavily web]
+    P --> T[Find ties<br/>person + organization<br/>+ tie keyword in one clause]
+    T --> V[Verify the quote<br/>is on the page]
+    V --> C[Classify<br/>disclosed · this story · other]
+    C --> O[Open Payments<br/>confirms only]
+    O --> S[Score reliability<br/>Strong · Moderate · Weak]
+    S --> X[Result card]
+```
+
+| Step | Module | API |
+|---|---|---|
+| Load the article (URL or pasted text) | `pipeline.load_article` | Tavily extract |
+| Pull out quoted experts, their role and affiliation | `extract.py` | none, rule-based |
+| Confirm identity: exactly one ORCID record for name + affiliation, or a user pick re-checked against the surname | `identity.py` | ORCID public API |
+| Find evidence pages: research papers (conflict statements) and web bios | `pipeline.gather_pages` | Exa research-paper search, Tavily search + extract |
+| Extract ties: a clause naming the person, an organization and a tie keyword | `ties.find_ties` | none, rule-based |
+| Classify: disclosed in the article / related to this story / other | `ties.classify_tie` | none |
+| Confirmation badge: payments from that company to a clinician with that name | `openpayments.py` | CMS Open Payments |
+
+Every call goes through `session.Session`, which caches each response to disk (keyed by request; keys are never stored), supports replay mode, and reports each call to the UI as it happens.
 
 ## Using the app
 
@@ -35,9 +67,10 @@ Each expert ends in one of these states:
 
 **Mask names** replaces each expert's name with "Expert A", "Expert B" and so on everywhere on the page. Use it on stage.
 
-### Site flow
+<details>
+<summary><b>Site flow</b> (every state has a way forward)</summary>
 
-Every state has a way forward: errors offer **Try again** plus a context-specific fix, and finished results offer next actions.
+Errors offer **Try again** plus a context-specific fix, and finished results offer next actions.
 
 ```mermaid
 flowchart TD
@@ -70,34 +103,9 @@ flowchart TD
     N -->|Check another article| C
 ```
 
+</details>
+
 The **How it works** cards expand to full width with a view transition (click, **Close** or **Esc**). **Limits** is a separate section, and the nav underlines the section in view.
-
-## Design system
-
-The UI is one page (`web/index.html`) built from a small set of tokens defined on `:root`. Components only use these, so spacing, type and shape stay consistent.
-
-| Token group | Values |
-|---|---|
-| Type (`--fs-*`) | 2xs 11 · xs 12 · sm 14 · base 16 · md 18 · lg 22 · xl clamp(26–34) · display clamp(36–64) px |
-| Spacing (`--sp-1…8`) | 4 · 8 · 12 · 16 · 24 · 32 · 48 · 72 px |
-| Radius (`--r-*`) | xs 6 · sm 12 · md 18 · lg 24 · pill; squircle (`corner-shape`) where supported |
-| Motion | `--dur-fast` .15s · `--dur` .2s · `--ease`; everything stops under reduced motion |
-| Color | semantic tokens (`--ink`, `--surface`, `--accent`, `--flag`, `--ok`, `--warn`, …) redefined for dark mode |
-
-**Rules the page follows:**
-- **Icons:** one SVG set (`#i-*` symbols): 24px grid, 2px round strokes, `currentColor`. No text glyphs as icons.
-- **Fonts:** Unbounded for display, the system UI font for text. Monospace (Space Mono) is only for code-like text: API query labels, keys, code samples.
-- **No filler:** no decorative badges or labels that repeat what the layout already says. Status chips, tie categories and reliability pills carry information.
-- **Optical alignment:**
-  - the display headline is pulled back by its side bearing to line up with the text
-  - opening quote marks hang
-  - circles are drawn about 6% larger than squares
-  - icons and numerals are nudged to their visual centre
-  - buttons trim to cap height where `text-box` is supported
-- **Headlines** use `text-wrap: balance` and body text uses `pretty`. The hero headline is two unbreakable phrases, so it's one line or "Who pays / the experts?", never split mid-phrase.
-- **Loading:** any button whose action takes time shows a spinner, a shine sweep and `aria-busy` until it settles. Content that's loading shows skeletons.
-
-The hero puts the main feature first (the check itself, enlarged) beside a live-styled **product preview**, built from the same components as real results, with fictional data. Its **Run this example live** button runs the demo.
 
 ## Command line
 
@@ -108,34 +116,6 @@ python -m conflict_check.cli https://example.com/article --experts-only   # chec
 python -m conflict_check.cli https://example.com/article                  # full check
 python -m conflict_check.cli --file article.txt --expert "Jane Doe@Harvard Medical School" --json out.json
 ```
-
-## How it works
-
-| Step | Module | API |
-|---|---|---|
-| Load the article (URL or pasted text) | `pipeline.load_article` | Tavily extract |
-| Pull out quoted experts, their role and affiliation | `extract.py` | none, rule-based |
-| Confirm identity: exactly one ORCID record for name + affiliation, or a user pick re-checked against the surname | `identity.py` | ORCID public API |
-| Find evidence pages: research papers (conflict statements) and web bios | `pipeline.gather_pages` | Exa research-paper search, Tavily search + extract |
-| Extract ties: a clause naming the person, an organization and a tie keyword | `ties.find_ties` | none, rule-based |
-| Classify: disclosed in the article / related to this story / other | `ties.classify_tie` | none |
-| Confirmation badge: payments from that company to a clinician with that name | `openpayments.py` | CMS Open Payments |
-
-Every call goes through `session.Session`, which caches each response to disk (keyed by request; keys are never stored), supports replay mode, and reports each call to the UI as it happens.
-
-### HTTP API
-
-| Route | Body | Returns |
-|---|---|---|
-| `POST /api/experts` | `{url \| text, replay?, demo?}` | article text and extracted experts |
-| `POST /api/check` | `{url \| text, experts?, replay?, demo?}` | the full result as JSON |
-| `POST /api/check/stream` | same | NDJSON events: `start`, `call`, `expert`, then `done` or `error` |
-| `GET /api/config` | | replay default, cache folder, which keys are set (`stale-while-revalidate`) |
-| `GET /api/demo` | | the fictional demo article |
-
-`experts` is a list of `{name, affiliation?, orcid?}`. Leave it out to use the extractor's top 5. `"demo": true` runs the real pipeline on fictional data from `conflict_check/demo.py`, with no keys and no network. Requests over 2 MB are rejected.
-
-**Caching.** The page is sent with `no-cache`, so a demo laptop never shows a stale UI. `/api/config` uses `stale-while-revalidate`. In the browser, a repeat check of the same article and experts shows the last result immediately, marked **Updating**, while fresh results stream in. The last 8 checks are kept in local storage.
 
 ## Reliability ratings
 
@@ -180,7 +160,7 @@ In the UI, each connection shows a pill (for example "Strong · 92"), and **Why 
 - **The wording is "connections the article didn't mention",** never "undisclosed conflicts" or "hidden ties".
 - **On stage:** mask names, demo only hand-checked articles, and include one control article that should find nothing.
 
-## Demo mode
+## Demo
 
 **Built-in demo:** click **Try the demo** in the check card, or **Run this example live** under the product preview. It runs the real pipeline on a fictional article, people and companies, with realistic delays and no keys or network. It covers every result state: a confirmed expert with ties and an Open Payments badge, an expert you confirm by picking a candidate, and a spokesperson who is set aside.
 
@@ -193,7 +173,25 @@ python -m conflict_check.server --cache-dir demo-cache --replay   # on stage
 
 `cache/` is git-ignored. To share a demo cache with the team, use a separate folder such as `demo-cache/` and commit it. In replay mode, an uncached request shows as a red **miss** in the API panel.
 
-## Configuration
+The walk-through script is in [DEMO.md](DEMO.md). `demo-cache/` holds every API response for two real articles, so the demo runs offline.
+
+## Reference
+
+### HTTP API
+
+| Route | Body | Returns |
+|---|---|---|
+| `POST /api/experts` | `{url \| text, replay?, demo?}` | article text and extracted experts |
+| `POST /api/check` | `{url \| text, experts?, replay?, demo?}` | the full result as JSON |
+| `POST /api/check/stream` | same | NDJSON events: `start`, `call`, `expert`, then `done` or `error` |
+| `GET /api/config` | | replay default, cache folder, which keys are set (`stale-while-revalidate`) |
+| `GET /api/demo` | | the fictional demo article |
+
+`experts` is a list of `{name, affiliation?, orcid?}`. Leave it out to use the extractor's top 5. `"demo": true` runs the real pipeline on fictional data from `conflict_check/demo.py`, with no keys and no network. Requests over 2 MB are rejected.
+
+**Caching.** The page is sent with `no-cache`, so a demo laptop never shows a stale UI. `/api/config` uses `stale-while-revalidate`. In the browser, a repeat check of the same article and experts shows the last result immediately, marked **Updating**, while fresh results stream in. The last 8 checks are kept in local storage.
+
+### Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -202,7 +200,7 @@ python -m conflict_check.server --cache-dir demo-cache --replay   # on stage
 | `OPEN_PAYMENTS` | on | Set to `off` to skip the badges |
 | `OPEN_PAYMENTS_DATASETS` | 2025 and 2024 | `year:dataset-id,…` from the CMS metastore |
 
-## Evaluation
+### Evaluation
 
 ```sh
 python -m eval.run_eval [--replay]
@@ -212,30 +210,60 @@ Scores `eval/testset.json`: each case is an article plus, for each expert, the u
 
 The set holds 15 experts across 10 real articles, plus one fictional placeholder. The labels list ties found on disclosure pages (re-checked against PMC full text or the MSK profile page), not every real tie, so precision is a floor: ties the tool finds that nobody labelled count as false positives. It has one negative case. Last live run: recall 66%, precision 23%, 9 of 18 experts declined at the ORCID step. To grow it, add articles with at least one expert whose disclosures you have read in full. For the slide, cite Wang, Grey and Bolland, CMAJ 2017 (PMC5392116): about a third of commenters had financial conflicts, and two-thirds of those went unreported.
 
-## Demo
-
-`demo-cache/` holds every API response for two real articles, so the demo runs offline: `python -m conflict_check.server --replay --cache-dir demo-cache`. The walk-through is in [DEMO.md](DEMO.md).
-
-## Cost
+### Cost
 
 A 5-expert check costs about 5-7 Tavily credits and $0.03 of Exa. Identity is checked first, so unconfirmed experts cost nothing. Each confirmed expert runs two Exa searches (disclosure wording, and recent papers that contain the name) and one advanced-depth Tavily search. Failed calls retry twice on 429 and 5xx errors; Open Payments lookups give up after 20 s.
 
+### Design system
+
+The UI is one page (`web/index.html`) built from a small set of tokens defined on `:root`. Components only use these, so spacing, type and shape stay consistent.
+
+| Token group | Values |
+|---|---|
+| Type (`--fs-*`) | 2xs 11 · xs 12 · sm 14 · base 16 · md 18 · lg 22 · xl clamp(26–34) · display clamp(36–64) px |
+| Spacing (`--sp-1…8`) | 4 · 8 · 12 · 16 · 24 · 32 · 48 · 72 px |
+| Radius (`--r-*`) | xs 6 · sm 12 · md 18 · lg 24 · pill; squircle (`corner-shape`) where supported |
+| Motion | `--dur-fast` .15s · `--dur` .2s · `--ease`; everything stops under reduced motion |
+| Color | semantic tokens (`--ink`, `--surface`, `--accent`, `--flag`, `--ok`, `--warn`, …) redefined for dark mode |
+
+**Rules the page follows:**
+- **Icons:** one SVG set (`#i-*` symbols): 24px grid, 2px round strokes, `currentColor`. No text glyphs as icons.
+- **Fonts:** Unbounded for display, the system UI font for text. Monospace (Space Mono) is only for code-like text: API query labels, keys, code samples.
+- **No filler:** no decorative badges or labels that repeat what the layout already says. Status chips, tie categories and reliability pills carry information.
+- **Optical alignment:**
+  - the display headline is pulled back by its side bearing to line up with the text
+  - opening quote marks hang
+  - circles are drawn about 6% larger than squares
+  - icons and numerals are nudged to their visual centre
+  - buttons trim to cap height where `text-box` is supported
+- **Headlines** use `text-wrap: balance` and body text uses `pretty`. The hero headline is two unbreakable phrases, so it's one line or "Who pays / the experts?", never split mid-phrase.
+- **Loading:** any button whose action takes time shows a spinner, a shine sweep and `aria-busy` until it settles. Content that's loading shows skeletons.
+
+The hero puts the main feature first (the check itself, enlarged) beside a live-styled **product preview**, built from the same components as real results, with fictional data. Its **Run this example live** button runs the demo.
+
 ## Project layout
 
+```mermaid
+flowchart TD
+    W[web/index.html] --> SV[server.py<br/>HTTP API]
+    CLI[cli.py] --> PL[pipeline.py<br/>end-to-end check]
+    SV --> PL
+    PL --> EX[extract.py]
+    PL --> ID[identity.py]
+    PL --> TI[ties.py]
+    PL --> OP[openpayments.py]
+    PL --> SE[session.py<br/>cache · replay · call log]
+    ID --> SE
+    TI --> SE
+    OP --> SE
+    SE --> CL[clients.py<br/>Tavily · Exa · ORCID · Open Payments]
 ```
-conflict_check/
-  session.py       cache, replay mode, call log and live call hook
-  clients.py       Tavily, Exa, ORCID and Open Payments clients
-  extract.py       quoted experts from article text
-  identity.py      ORCID identity confirmation and user picks
-  ties.py          tie extraction, quote verification, classification
-  openpayments.py  Open Payments confirmation badge
-  pipeline.py      the end-to-end check
-  server.py        web server and HTTP API
-  cli.py           command-line runner
-web/index.html     the UI
-tests/             offline tests with fictional fixtures
-eval/              test set and scoring script
+
+```
+conflict_check/   the package: the modules above, plus reliability.py and demo.py
+web/index.html    the UI
+tests/            offline tests with fictional fixtures
+eval/             test set and scoring script
 ```
 
 ## Still to do
