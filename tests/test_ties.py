@@ -139,6 +139,12 @@ class TestReviewFindings(unittest.TestCase):
             self.assertFalse(same_company(a, b), (a, b))
         self.assertEqual(same_company("Merck KGaA", "Merck"), same_company("Merck", "Merck KGaA"))  # symmetric
 
+    def test_initial_plus_surname_subjects_still_split_people(self):
+        page = ("Maren Okafor, Jon Lee. J. Lee reports fees from Acme Labs, and M. Okafor reports fees from Cora Labs. "
+                "M. Okafor received grants from Bolt Labs.")
+        self.assertEqual(set(ties(page, exclude=[])), {"Cora Labs", "Bolt Labs"})
+        self.assertEqual(set(ties(page, name="Jon Lee", exclude=[])), {"Acme Labs"})
+
     def test_disclosed_check_uses_surname_not_suffix(self):
         from conflict_check.ties import surname
         article = "John Smith Jr said it worked.\n\nSmith, who consults for Veltrix, praised the drug."

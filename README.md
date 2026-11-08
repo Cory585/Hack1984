@@ -110,6 +110,40 @@ Every call goes through `session.Session`, which caches each response to disk (k
 
 **Caching.** The page is sent with `no-cache`, so a demo laptop never shows a stale UI. `/api/config` uses `stale-while-revalidate`. In the browser, a repeat check of the same article and experts shows the last result immediately, marked **Updating**, while fresh results stream in. The last 8 checks are kept in local storage.
 
+## Reliability ratings
+
+The risk review scored the idea's reliability 2/5 because each expert goes through many steps that can fail. So every result shows how much to trust it, and why. The rules live in `conflict_check/reliability.py`.
+
+**Per connection (0–100).** 100 × the weighted mean of seven factors, plus a bonus, clamped to 0–100 and rounded half-up:
+
+| Factor | Weight | Values |
+|---|---|---|
+| Identity | 20% | confirmed by ORCID 1.0 · picked by a person 0.8 · unknown 0.5 |
+| Attribution | 20% | best evidence named the person by full name 1.0 · surname 0.85 · initials 0.75 · semicolon continuation 0.7 · he/she 0.6 |
+| Source | 20% | research-paper disclosure 1.0 · institutional page (.edu, .gov, .ac.xx) 0.85 · other web page 0.6 |
+| Corroboration | 15% | independent websites: 1 → 0.55 · 2 → 0.85 · 3+ → 1.0 (pages on one site count once) |
+| Wording | 10% | employment, equity, board, founder, patents 1.0 · consulting, advisory, research funding, speaking 0.9 · personal fees 0.75 · other 0.6 |
+| Recency | 10% | newest year in the evidence: ≤3 years 1.0 (disclosures usually cover 36 months) · ≤6 years 0.75 · older 0.5 · none found 0.7 |
+| Organization | 5% | full name 1.0 · bare acronym 0.8 |
+| Open Payments | bonus | +8 when one physician's payments from that company match; never negative |
+
+**Labels:** Strong 80+, Moderate 60–79, Weak below 60. The score is rounded before labelling, and a score exactly on a boundary takes the higher label (79.5 → 80 → Strong).
+
+**What happens on a tie.** Connections are ordered by these rules, in turn:
+1. Named in this story.
+2. Higher score.
+3. More independent websites.
+4. Better best source.
+5. More serious kind of tie (employment > equity > board > … > personal fees).
+6. Organization name, A–Z, ignoring case.
+7. The order they were found.
+
+The order is fully deterministic.
+
+**Coverage (per expert).** How thorough the search was, based on identity, pages checked and which search channels returned pages. It matters most for a clean "no confirmed connections" result: thin coverage makes that weak evidence. It isn't rated when identity wasn't confirmed or the search failed.
+
+In the UI, each connection shows a pill (for example "Strong · 92"), and **Why 92?** lists every factor with a bar and a plain-language note.
+
 ## Safety rules (from the risk review)
 
 - **No identity, no ties.** If ORCID doesn't return exactly one match for name + affiliation, nothing is searched until a person picks the right record.
