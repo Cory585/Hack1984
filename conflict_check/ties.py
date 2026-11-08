@@ -77,6 +77,18 @@ GENERIC = {
     "association", "society", "group", "labs", "laboratories", "center", "centre", "national", "of",
     "for", "the", "and", "school", "college", "medical", "medicine", "hospital", "research", "sciences",
 }
+# Not organizations: job titles, award words and places that capitalised runs pick up
+# ("Director", "Academic Advisor", "CA USA", "La Jolla", "Cambridge, Mass").
+NOT_ORGS = {
+    "director", "founder", "cofounder", "co-founder", "academic", "advisor", "adviser", "executive",
+    "vice-president", "president", "vice", "chief", "officer", "professor", "award", "awards", "prize",
+    "american", "america", "usa", "us", "uk", "united", "states", "kingdom", "england", "canada", "mass",
+    "massachusetts", "california", "new", "york", "texas", "florida", "ohio", "virginia", "washington",
+    "london", "boston", "cambridge", "san", "diego", "francisco", "jolla", "la", "los", "angeles",
+    "chicago", "seattle", "pittsburgh", "rochester", "cleveland", "ca", "ma", "ny", "tx", "fl", "dc",
+    "prnewswire", "newswire", "businesswire", "reuters", "wikipedia", "twitter", "linkedin", "youtube",
+    "program", "initiative", "translational", "science",
+}
 CONNECTORS = {"of", "for", "the", "and", "&", "do", "da", "de"}
 PARTICLES = {"da", "de", "do", "dos", "das", "van", "von", "der", "den", "del", "della", "di", "du", "le", "la", "bin"}
 SUFFIXES = {"jr", "junior", "júnior", "filho", "neto", "sobrinho", "ii", "iii", "iv", "sr"}
@@ -253,6 +265,8 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
     person_toks = {t.lower() for t in person.split()}
     out = []
     for m in ORG_RUN.finditer(text):
+        if text[m.end():m.end() + 1] == "_" or text[max(m.start() - 1, 0):m.start()] == "_":
+            continue  # half of a wiki link slug: "Hedge_fund", "Short_selling"
         org = clean_org(m.group(0))
         toks = org.split()
         if not toks or all(t.lower() in LEAD_STOP for t in toks):
@@ -266,6 +280,10 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
         if re.fullmatch(INITIALS, org) and re.match(rf"\s+{SUBJECT_VERB}\b", text[m.end():]):
             continue  # "JFKS has received": a person, not a company (GSK in a list is kept)
         if not distinctive_tokens(org):
+            continue
+        if "_" in org or re.match(r"(?:division|department|us)\b", org, re.I):
+            continue  # wiki link slugs ("Hedge_fund"), units of a university, "All of Us" fragments
+        if all(t.lower().strip(".,") in NOT_ORGS | CONNECTORS for t in toks):
             continue
         out.append((org, m.start()))
     return out
@@ -343,6 +361,33 @@ def person_statements(text: str, name: str) -> list[tuple[str, str, str]]:
     return out
 
 
+KNOWN_ACRONYMS = {"NIH": "National Institutes of Health", "NHS": "National Health Service",
+                  "FDA": "Food and Drug Administration", "CDC": "Centers for Disease Control"}
+ACRONYM_DEF = re.compile(r"((?:[A-Z][\w&'’\-]*\s+){1,6}(?:(?:of|for|and|the)\s+)?(?:[A-Z][\w&'’\-]*\s+){0,3}?)\(\s*([A-Z]{2,6})\s*\)")
+
+
+def acronyms_in(text: str) -> dict[str, str]:
+    """'Scripps Translational Science Institute (STSI)' -> {'STSI': 'Scripps Translational Science Institute'}."""
+    out = dict(KNOWN_ACRONYMS)
+    for m in ACRONYM_DEF.finditer(plain(text)):
+        words = [w for w in m.group(1).split() if w not in CONNECTORS]  # lowercase 'of/for/the' only
+        acr = m.group(2)
+        for n in range(1, len(words) + 1):  # the acronym spells the last n capitalised words
+            tail = words[-n:]
+            if "".join(w[0] for w in tail).upper() == acr:
+                out[acr] = " ".join(m.group(1).split()[-(n + (len(m.group(1).split()) - len(words))):]).strip()
+                break
+    return out
+
+
+MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+
+
+def plain(seg: str) -> str:
+    """Markdown links -> their text, so link titles and URL slugs aren't read as organizations."""
+    return MD_LINK.sub(r"\1", seg)
+
+
 def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = None) -> list[dict]:
     """pages: [{url, title, text, api}] -> deduped ties, each with verified evidence."""
     exclude_orgs = [o for o in (exclude_orgs or []) if o]
@@ -353,16 +398,19 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
         if not strong.search(text):
             continue  # page isn't demonstrably about this person
         paper_like = bool(DOI.search(text) and COI_HEADING.search(text))  # reliability: is this a paper?
+        acr = acronyms_in(text)
         for seg, quote, how in person_statements(text, name):
             kw = TIE.search(seg)
             if not kw or (NEGATION.search(seg) and not EXCEPTION.search(seg)):
                 continue
             if not verify_quote(quote, text):
                 continue
-            for org, pos in orgs_in(seg, name):
-                if any(same_org(org, ex) for ex in exclude_orgs):
+            seg_plain = plain(seg)
+            for org, pos in orgs_in(seg_plain, name):
+                org = acr.get(org, org)  # "NIH" -> "National Institutes of Health"
+                if any(same_org(org, ex) or same_company(org, ex) for ex in exclude_orgs):
                     continue
-                rel = keyword_for(seg, pos)
+                rel = keyword_for(seg_plain, pos)
                 # Merge spellings of one company ("AstraZeneca" / "Astra Zeneca", "Lilly" / "Eli Lilly").
                 tie = next((t for t in ties if same_company(t["org"], org)), None)
                 if tie is None:

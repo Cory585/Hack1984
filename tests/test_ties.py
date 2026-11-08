@@ -236,3 +236,18 @@ class TestHelpers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NotOrgsTests(unittest.TestCase):
+    def orgs(self, text):
+        from conflict_check.ties import orgs_in
+        return [o for o, _ in orgs_in(text, "Jane Doe")]
+
+    def test_places_titles_and_slugs_are_not_orgs(self):
+        text = "Jane Doe, Director, serves on the advisory board of Acme Bio in La Jolla, CA USA (Hedge_fund)."
+        self.assertEqual(self.orgs(text), ["Acme Bio"])
+
+    def test_markdown_link_titles_are_not_orgs(self):
+        from conflict_check.ties import plain
+        s = plain('advisor to [a firm](https://en.wikipedia.org/wiki/Hedge_fund "Hedge fund") and Acme Bio')
+        self.assertEqual(self.orgs(s), ["Acme Bio"])
