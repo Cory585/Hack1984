@@ -21,5 +21,254 @@
    }
   },
   "note": "Only the ties verified word-for-word on the ESC 365 speaker page (grants from NIH and AHA). Not a complete label: other experts in the article are unlabelled and left out."
+ },
+ {
+  "id": "sciam-wegovy-pill",
+  "url": "https://scientificamerican.com/article/wegovy-pill-becomes-first-oral-glp-1-weight-loss-drug-approved-in-u-s",
+  "experts": {
+   "Daniel Drucker": {
+    "affiliation": "University of Toronto",
+    "ties": [
+     "Amgen",
+     "AstraZeneca",
+     "Boehringer Ingelheim",
+     "Kallyope",
+     "Alnylam",
+     "Crinetics",
+     "Eli Lilly",
+     "Insulet",
+     "Metsera",
+     "Pfizer",
+     "Zealand Pharma"
+    ]
+   },
+   "John Buse": {
+    "affiliation": "University of North Carolina",
+    "ties": [
+     "Corcept",
+     "GentiBio",
+     "Sparrow Pharmaceuticals",
+     "Aardvark Therapeutics",
+     "Altimmune",
+     "Alveus Therapeutics",
+     "Amgen",
+     "Antag",
+     "Aqua Medical",
+     "AstraZeneca",
+     "General Medicines",
+     "Kayothera",
+     "Metsera",
+     "Pfizer",
+     "Recordati",
+     "Roche",
+     "Vertex",
+     "vTv Therapeutics",
+     "Eli Lilly",
+     "Zealand",
+     "Glyscend",
+     "Mellitus Health",
+     "Pendulum Therapeutics",
+     "Praetego",
+     "Stability Health"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. Scientific American, 2025-12-23, full text fetched. Not on the suggested outlet list. Article discloses Drucker (former Novo consulting), Buse (Novo consultant/investigator); McCoy none."
+ },
+ {
+  "id": "cnn-wegovy-pill-korner",
+  "url": "https://abc13.com/post/fda-approval-wegovy-pill-new-era-oral-glp-1-weight-loss-drugs-begins/18307709/",
+  "experts": {
+   "Judith Korner": {
+    "affiliation": "Columbia University",
+    "ties": [
+     "Morphic Medical",
+     "Gila Therapeutics",
+     "Found Health",
+     "Apotex",
+     "Equinox",
+     "Canaccord Genuity",
+     "Sago",
+     "Bristol Myers Squibb",
+     "UpToDate",
+     "Endocrine Society"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. CNN Wire story republished by ABC13, 2025-12-23, full text. Only one independent expert (others: Novo's Jason Brett, BMO analyst). Article discloses no ties for Korner. Original CNN URL not fetched."
+ },
+ {
+  "id": "healthline-glp1-hfpef",
+  "url": "https://www.healthline.com/health-news/weight-loss-drugs-improve-heart-failure-outcomes",
+  "experts": {
+   "Pooja Prasad": {
+    "affiliation": "University of California San Francisco",
+    "ties": []
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. Healthline 2025-09-04 by David Mills; full text fetched; no disclosures in article. Third expert Mir Ali (MemorialCare bariatric surgeon) not researched. Prasad is a confirmed clean negative; Chen is low-confidence."
+ },
+ {
+  "id": "stat-down-syndrome-leqembi-2024",
+  "url": "https://www.statnews.com/2024/08/21/alzheimers-down-syndrome-leqembi-risks-brain-hemorrhage/",
+  "experts": {
+   "Lon Schneider": {
+    "affiliation": "University of Southern California",
+    "ties": [
+     "Eli Lilly/Avid",
+     "Roche/Genentech",
+     "Eisai",
+     "Biogen",
+     "Bristol Myers Squibb",
+     "Neurim",
+     "Immunobrain Checkpoint",
+     "BioVie",
+     "Lexeo",
+     "Lighthouse",
+     "AC Immune",
+     "Actinogen",
+     "Pharmatrophix",
+     "Linus Health",
+     "Lundbeck",
+     "Novo Nordisk",
+     "Muna",
+     "Ono",
+     "Vivli.org",
+     "Della Martin Foundation"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. Also quoted: Hampus Hillerstrom (LuMind IDSC advocacy), not researched. Article discloses only STAT's own funders (RWJF, Commonwealth Fund)."
+ },
+ {
+  "id": "stat-compass-psychedelics-2026",
+  "url": "https://www.statnews.com/2026/10/14/compass-pathways-psychedelics-stat-summit/",
+  "experts": {
+   "Steven Hyman": {
+    "affiliation": "Harvard University",
+    "ties": [
+     "Voyager Therapeutics",
+     "Cyclerion Therapeutics",
+     "Vesalius Therapeutics",
+     "J&J Innovative Medicines",
+     "F-Prime Capital"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. Only one outside expert quoted. Other STAT psychedelic pieces were paywalled or had no named experts."
+ },
+ {
+  "id": "nbc-brainhq-acetylcholine-2025",
+  "url": "https://www.nbcnews.com/health/aging/brain-game-boosts-chemical-memory-dementia-research-rcna237832",
+  "experts": {
+   "Etienne de Villers-Sidani": {
+    "affiliation": "McGill University",
+    "ties": [
+     "Innodem Neurosciences"
+    ]
+   },
+   "Joaquin Anguera": {
+    "affiliation": "University of California San Francisco",
+    "ties": [
+     "MasterMind Sports",
+     "JelikaLite"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. Also quoted: Jennifer Pauldurai (Inova) and Laura Glass Umfleet (Medical College of Wisconsin); not researched. Umfleet's web search found no disclosures, but it was not a full check."
+ },
+ {
+  "id": "nbc-dostarlimab-rectal-2025",
+  "url": "https://www.nbcnews.com/health/cancer/cancer-patients-immunotherapy-may-way-skip-surgery-chemo-rcna203038",
+  "experts": {
+   "Luis Diaz": {
+    "affiliation": "Memorial Sloan Kettering Cancer Center",
+    "ties": [
+     "Quest Diagnostics",
+     "Freenome Holdings, Inc.",
+     "Seer Biosciences",
+     "Innovatus Capital Partners, LLC",
+     "Absci Corporation"
+    ]
+   },
+   "Andrea Cercek": {
+    "affiliation": "Memorial Sloan Kettering Cancer Center",
+    "ties": [
+     "Merck & Co Inc.",
+     "Pfizer, Inc.",
+     "AbbVie",
+     "Illumina"
+    ]
+   },
+   "Suneel Kamath": {
+    "affiliation": "Cleveland Clinic",
+    "ties": [
+     "Jazz Pharmaceuticals",
+     "AstraZeneca",
+     "Exelixis",
+     "BeiGene",
+     "Takeda",
+     "Sirtex Medical",
+     "Amgen",
+     "Pfizer"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. Article published Apr 27 2025, no disclosures stated. Heather Yeo (Weill Cornell) also quoted, not researched."
+ },
+ {
+  "id": "npr-creatine",
+  "url": "https://www.kunc.org/npr-news/2025-09-04/are-creatine-supplements-all-that-theyre-pumped-up-to-be",
+  "experts": {
+   "Abbie Smith-Ryan": {
+    "affiliation": "University of North Carolina",
+    "ties": [
+     "Alzchem",
+     "Create Wellness"
+    ]
+   },
+   "Jose Antonio": {
+    "affiliation": "Nova Southeastern University",
+    "ties": [
+     "Bear Balanced",
+     "Create",
+     "Enhanced Games",
+     "Liquid Youth"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. NPR (Maria Godoy), 2025-09-04, supplements. Fetched in full. Article states no disclosures for anyone. Also quotes Hannah Cabre (Pennington) and Bobby Parrish (influencer), not researched. Strong positive case: two of three experts have creatine-industry advisory ties."
+ },
+ {
+  "id": "npr-menopause-hormone-therapy",
+  "url": "https://www.wusf.org/2025-11-11/is-hormone-therapy-for-menopause-right-for-you-6-things-to-know",
+  "experts": {
+   "JoAnn Pinkerton": {
+    "affiliation": "University of Virginia",
+    "ties": [
+     "Bayer",
+     "Merck",
+     "Pfizer"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. NPR (Allison Aubrey), 2025-11-11 (NPR original: npr.org/2025/11/11/nx-s1-5590203/hormone-therapy-fda-health, timed out; the WUSF copy was fetched in full). Women's health. Article states no disclosures. Also names FDA Commissioner Makary (paraphrased, not researched)."
+ },
+ {
+  "id": "nbc-pink-noise",
+  "url": "https://www.nbcnews.com/health/health-news/pink-noise-worse-sleep-quality-study-rem-rcna257099",
+  "experts": {
+   "Rafael Pelayo": {
+    "affiliation": "Stanford University",
+    "ties": [
+     "Adaptive Sound Technology",
+     "Eisai",
+     "SleepQuest",
+     "SleepScore Labs",
+     "Restore Sleep"
+    ]
+   }
+  },
+  "note": "Draft labels from subagent research; every quote re-verified against PMC full text or the MSK profile page. Ties listed are the ones found on disclosure pages, not necessarily all real ties. NBC News, 2026-02-04, sleep. Fetched in full. No disclosures in article. Mixed case: Pelayo has several sleep-company advisory ties (from 2023 papers), Basner none found (negative-ish)."
  }
 ]
