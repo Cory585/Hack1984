@@ -45,7 +45,7 @@ def urllib_fetcher(method: str, url: str, headers: dict, body: Any) -> Any:
 class Session:
     def __init__(
         self,
-        cache_dir: str = "cache",
+        cache_dir: str | None = "cache",
         replay: bool = False,
         fetcher: Fetcher | None = None,
         tavily_key: str | None = None,
@@ -70,10 +70,11 @@ class Session:
                 headers: dict | None = None, body: Any = None) -> Any:
         key_src = json.dumps({"m": method, "u": url, "b": body}, sort_keys=True)
         digest = hashlib.sha256(key_src.encode("utf-8")).hexdigest()[:32]
-        path = os.path.join(self.cache_dir, api, digest + ".json")
+        # cache_dir=None: no disk cache at all (the built-in demo), so nothing is left behind.
+        path = os.path.join(self.cache_dir, api, digest + ".json") if self.cache_dir else None
         t0 = time.perf_counter()
 
-        if os.path.exists(path):
+        if path and os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)["response"]
             self._log(api, label, "cache", t0)
@@ -86,9 +87,12 @@ class Session:
         except Exception as e:
             self._log(api, label, "error", t0, str(e)[:200])
             raise
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({"request": {"method": method, "url": url, "body": body}, "response": data}, f)
+        if path:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = f"{path}.{os.getpid()}.tmp"  # write then rename: concurrent requests never see half a file
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"request": {"method": method, "url": url, "body": body}, "response": data}, f)
+            os.replace(tmp, path)
         self._log(api, label, "live", t0)
         return data
 
