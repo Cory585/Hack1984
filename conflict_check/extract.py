@@ -30,6 +30,9 @@ TITLED = re.compile(rf"\b(Dr\.?|Prof\.?|Professor)\s+({NAME})")
 APPOS = re.compile(rf"\b({NAME})({CREDS})?,\s+(?:an?\s+|the\s+)?([^,.;\n“”\"]{{2,90}}?)\s+(?:at|of|with|from|for|in)\s+(?:the\s+)?({ORG})")
 APPOS_OF = re.compile(rf"\b({NAME})({CREDS})?,\s+of\s+(?:the\s+)?({ORG})")
 WHO = re.compile(rf"\b({NAME})({CREDS})?,\s+who\s+({WHO_VERB}\b[^,.;\n]{{0,80}}?)\s+(?:at|of|for)\s+(?:the\s+)?({ORG})")
+# "…of the Heart, Vascular & Thoracic Institute at Cleveland Clinic": the ORG pattern stops at the first comma
+# ("Heart"), so look past a comma-separated unit name for the institution after its "at".
+UNIT_TAIL = re.compile(rf"((?:,\s*[A-Z][\w&'’\-]*(?:\s+(?:of|for|and|&|the|[A-Z][\w&'’\-]*))*)+)\s+(?:at|of|in)\s+(?:the\s+)?({ORG})")
 PRE_ROLE = re.compile(rf"(?:\b({ORG})\s+)?\b((?:study\s+|the\s+study['’]s\s+)?{ROLE_WORD})\s+(?:({TITLE})\s+)?({NAME})"
                       rf"(?:\s+of\s+(?:the\s+)?({ORG}))?")
 PRE_ROLE_OTHER = re.compile(rf"\b(CEO|chief executive|president|spokes(?:person|woman|man)|executive director|"
@@ -161,7 +164,11 @@ def extract_experts(text: str, limit: int | None = None) -> list[Expert]:
     for m in APPOS.finditer(text):
         role_ok = EXPERT_ROLE.search(m.group(3)) or NONEXPERT_ROLE.search(m.group(3))
         if role_ok or ORG_WORD.search(m.group(4)):
-            add(m.group(1), m.start(1), "role", role=m.group(3), aff=m.group(4), creds=m.group(2))
+            aff = m.group(4)
+            tail = UNIT_TAIL.match(text, m.end(4))
+            if tail and ORG_WORD.search(tail.group(1)):  # the first org was just the start of a unit's name
+                aff = tail.group(2)
+            add(m.group(1), m.start(1), "role", role=m.group(3), aff=aff, creds=m.group(2))
     for m in WHO.finditer(text):
         add(m.group(1), m.start(1), "role", role=f"who {m.group(3)}", aff=m.group(4), creds=m.group(2))
     for m in PRE_ROLE.finditer(text):
