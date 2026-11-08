@@ -24,6 +24,10 @@ SCOPE_NOTE = ("Shows connections disclosed elsewhere (papers, bios, filings) tha
 Event = Callable[[dict], None]
 
 
+PAYWALL = re.compile(r"STAT\+ Exclusive|Already have an account\?|(?:subscribe|sign in|log in|register) to (?:continue|keep) reading|"
+                     r"(?:this|the rest of this) (?:article|story) is (?:for|available to) (?:paid )?subscribers|subscribers? only", re.I)
+
+
 def load_article(s: Session, url: str | None, text: str | None) -> dict:
     if text and text.strip():
         return {"url": url, "text": text.strip(), "source": "pasted"}
@@ -35,7 +39,8 @@ def load_article(s: Session, url: str | None, text: str | None) -> dict:
     results = tavily_extract(s, [url])
     if not results or not results[0].get("raw_content"):
         raise ValueError("Tavily couldn't extract that article; paste the text instead.")
-    return {"url": url, "text": results[0]["raw_content"], "source": "tavily extract"}
+    return {"url": url, "text": results[0]["raw_content"], "source": "tavily extract",
+            "paywalled": bool(PAYWALL.search(results[0]["raw_content"]))}
 
 
 def find_experts(s: Session, url: str | None = None, text: str | None = None) -> dict:
@@ -43,7 +48,8 @@ def find_experts(s: Session, url: str | None = None, text: str | None = None) ->
     article = load_article(s, url, text)
     experts = extract_experts(article["text"])
     return {
-        "article": {"url": article["url"], "source": article["source"], "chars": len(article["text"])},
+        "article": {"url": article["url"], "source": article["source"], "chars": len(article["text"]),
+                    "paywalled": bool(article.get("paywalled"))},
         "text": article["text"],
         "experts": [dict(e.to_dict(), selected=e.kind == "expert" and i < MAX_EXPERTS)
                     for i, e in enumerate(experts)],
@@ -245,7 +251,8 @@ def check_article(s: Session, url: str | None = None, text: str | None = None,
         results = []
 
     return {
-        "article": {"url": article["url"], "source": article["source"], "chars": len(article["text"])},
+        "article": {"url": article["url"], "source": article["source"], "chars": len(article["text"]),
+                    "paywalled": bool(article.get("paywalled"))},
         "experts": results,
         "skipped_experts": skipped,
         "scope_note": SCOPE_NOTE,

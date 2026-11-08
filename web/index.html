@@ -939,7 +939,7 @@ async function findExperts() {
     const data = await r.json().catch(() => ({ error: "The server sent an unreadable reply." }));
     if (!r.ok) throw new Error(data.error || r.statusText);
     state.gen++;  // a new article: older checks still streaming must not touch the page
-    state.article = { url: data.article.url, text: data.text, demo };
+    state.article = { url: data.article.url, text: data.text, demo, paywalled: !!data.article.paywalled };
     state.experts = data.experts.map(e => ({ ...e }));
     state.results = {}; state.calls = data.calls.slice();
     renderReview(); renderCalls(); $("results").innerHTML = "";
@@ -958,14 +958,16 @@ function showReviewSkeleton() {
 
 function renderReview() {
   $("review-actions").hidden = false;
-  $("rows").innerHTML = state.experts.length ? state.experts.map((e, i) => `<div class="person ${e.selected ? "" : "off"}" data-row="${i}">
+  const paywall = state.article && state.article.paywalled
+    ? `<div class="banner" role="status">This page looks paywalled, so only the start of the article was available and quoted experts may be missing. Paste the full text, or try a free source.</div>` : "";
+  $("rows").innerHTML = paywall + (state.experts.length ? state.experts.map((e, i) => `<div class="person ${e.selected ? "" : "off"}" data-row="${i}">
     <label class="check-hit"><input class="check" type="checkbox" data-i="${i}" data-k="selected" ${e.selected ? "checked" : ""} aria-label="Check ${esc(e.name || "this expert")}"></label>
     <input class="field" type="text" data-i="${i}" data-k="name" value="${esc(e.name)}" placeholder="First and last name" aria-label="Name">
     <input class="field aff" type="text" data-i="${i}" data-k="affiliation" value="${esc(e.affiliation || "")}" placeholder="Affiliation, e.g. Lakeside University" aria-label="Affiliation">
     <div class="ctx">${e.kind === "other" ? `<b>Not an independent expert${e.role ? " (" + esc(e.role) + ")" : ""}.</b> ` : ""}${e.added ? "Added by you." : mask(e.context)}</div>
   </div>`).join("") : `<div class="empty-box"><p>No quoted experts were found in this article. Add one by hand, or try the demo article.</p>
     <div class="card-actions"><button class="btn small" type="button" data-act="add"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Add an expert</button>
-    <button class="btn secondary small" type="button" data-act="demo"><svg class="i fill" aria-hidden="true"><use href="#i-play"/></svg>Try the demo article</button></div></div>`;
+    <button class="btn secondary small" type="button" data-act="demo"><svg class="i fill" aria-hidden="true"><use href="#i-play"/></svg>Try the demo article</button></div></div>`);
   updateCount();
 }
 $("rows").addEventListener("input", ev => {

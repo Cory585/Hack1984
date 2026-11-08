@@ -28,6 +28,8 @@ QUOTED_BEFORE = re.compile(rf"(?:({TITLE})\s+)?\b({NAME})(?:{CREDS})?\s+(?:{SPEE
 ACCORDING = re.compile(rf"\baccording\s+to\s+(?:({TITLE})\s+)?({NAME})")
 TITLED = re.compile(rf"\b(Dr\.?|Prof\.?|Professor)\s+({NAME})")
 APPOS = re.compile(rf"\b({NAME})({CREDS})?,\s+(?:an?\s+|the\s+)?([^,.;\n“”\"]{{2,90}}?)\s+(?:at|of|with|from|for|in)\s+(?:the\s+)?({ORG})")
+# "Harlan Krumholz, a Yale University cardiologist": the institution comes before the role.
+APPOS_PRE = re.compile(rf"\b({NAME})({CREDS})?,\s+(?:an?\s+|the\s+)({ORG})\s+({ROLE_WORD})\b")
 APPOS_OF = re.compile(rf"\b({NAME})({CREDS})?,\s+of\s+(?:the\s+)?({ORG})")
 WHO = re.compile(rf"\b({NAME})({CREDS})?,\s+who\s+({WHO_VERB}\b[^,.;\n]{{0,80}}?)\s+(?:at|of|for)\s+(?:the\s+)?({ORG})")
 # "…of the Heart, Vascular & Thoracic Institute at Cleveland Clinic": the ORG pattern stops at the first comma
@@ -121,7 +123,18 @@ def sentence_around(text: str, pos: int) -> str:
     return text[start:end].strip()
 
 
+MD_IMAGE = re.compile(r"!\[[^\]]*\]\((?:[^()\s]|\([^)]*\))*(?:\s+\"[^\"]*\")?\)")
+MD_LINK = re.compile(r"\[([^\]]+)\]\((?:[^()\s]|\([^)]*\))*(?:\s+\"[^\"]*\")?\)")
+
+
+def strip_markdown_links(text: str) -> str:
+    """Tavily returns pages as markdown: 'says [Steven Nissen](https://...), a cardiologist at ...'. Keep the
+    link text and drop the URL, or no name pattern can match."""
+    return MD_LINK.sub(r"\1", MD_IMAGE.sub("", text))
+
+
 def extract_experts(text: str, limit: int | None = None) -> list[Expert]:
+    text = strip_markdown_links(text)
     found: dict[str, Expert] = {}
     official: set[str] = set()
 
@@ -161,6 +174,9 @@ def extract_experts(text: str, limit: int | None = None) -> list[Expert]:
             e.credentials = clean_creds(creds)
 
     # Expert cues: these can introduce a person.
+    for m in APPOS_PRE.finditer(text):
+        if ORG_WORD.search(m.group(3)):
+            add(m.group(1), m.start(1), "role", role=m.group(4), aff=m.group(3), creds=m.group(2))
     for m in APPOS.finditer(text):
         role_ok = EXPERT_ROLE.search(m.group(3)) or NONEXPERT_ROLE.search(m.group(3))
         if role_ok or ORG_WORD.search(m.group(4)):

@@ -469,3 +469,16 @@ class TestIdentityRecall(unittest.TestCase):
         r = resolve_identity(none, "Ana Lee", "Stanford University")
         self.assertEqual(r["status"], "not_confirmed")
         self.assertEqual(len(r["candidates"]), 1)  # still offered for a human pick
+
+
+class TestPaywallFlag(unittest.TestCase):
+    def article(self, raw):
+        from conflict_check.pipeline import find_experts
+        fetch = lambda m, u, h, b: {"results": [{"url": u, "raw_content": raw}]}
+        return find_experts(Session(cache_dir=None, fetcher=fetch, tavily_key="k"), url="https://example.org/a")["article"]
+
+    def test_paywalled_page_is_flagged(self):
+        self.assertTrue(self.article("Intro.\n\nSTAT+ Exclusive Story\n\nAlready have an account? Log in")["paywalled"])
+
+    def test_free_page_is_not_flagged(self):
+        self.assertFalse(self.article("Dr. Ana Lee, a cardiologist at Stanford University, said it works.")["paywalled"])

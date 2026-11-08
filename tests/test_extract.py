@@ -65,3 +65,27 @@ class TestExtract(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMarkdownPages(unittest.TestCase):
+    NPR = ('"Maybe you need to treat longer," says [Roger Blumenthal](https://profiles.hopkinsmedicine.org/provider/roger-s-blumenthal/2708415), '
+           'a cardiologist at Johns Hopkins University. "Very disappointing," says [Steven Nissen](https://providers.clevelandclinic.org/provider/steven-nissen/4268279), '
+           'a cardiologist at the Cleveland Clinic who led the study. ![photo](https://x.org/a(1).jpg)')
+
+    def test_names_inside_markdown_links_are_found(self):
+        from conflict_check.extract import extract_experts
+        got = {e.name: e.affiliation for e in extract_experts(self.NPR)}
+        self.assertEqual(got.get("Roger Blumenthal"), "Johns Hopkins University")
+        self.assertEqual(got.get("Steven Nissen"), "Cleveland Clinic")
+
+    def test_strip_keeps_link_text_and_drops_images(self):
+        from conflict_check.extract import strip_markdown_links
+        self.assertEqual(strip_markdown_links("a [b c](https://x.org/q(1)) ![i](u) d"), "a b c  d")
+
+
+class TestInstitutionBeforeRole(unittest.TestCase):
+    def test_a_yale_university_cardiologist(self):
+        from conflict_check.extract import extract_experts
+        got = {e.name: e for e in extract_experts('"It was jarring," says Harlan Krumholz, a Yale University cardiologist. "Yes."')}
+        self.assertEqual(got["Harlan Krumholz"].affiliation, "Yale University")
+        self.assertEqual(got["Harlan Krumholz"].kind, "expert")
