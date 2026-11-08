@@ -279,12 +279,91 @@ details > .tie { margin-top: 10px; }
 footer { border-top: 1px dashed var(--rule); margin-top: 32px; padding: 22px 0 40px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 footer p { margin: 0 0 6px; max-width: 80ch; }
 
+/* ---------- hero actions, demo badge ---------- */
+.hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 28px; }
+.kbd { font: 700 11px var(--mono); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--rule); background: var(--surface-solid); color: var(--ink-2); }
+.demo-badge { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; font-size: 13px; font-weight: 700;
+  color: var(--ink); background: var(--holo); padding: 8px 8px 8px 16px; border-radius: 999px; justify-self: center; }
+.demo-badge button { border: 0; border-radius: 999px; padding: 6px 12px; font: 700 12px var(--font); cursor: pointer;
+  background: var(--surface-solid); color: var(--ink); min-height: 32px; }
+.form-foot { display: flex; justify-content: center; }
+
+/* ---------- loading: button shine + skeletons ---------- */
+.btn.loading::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .5) 50%, transparent 80%);
+  transform: translateX(-100%); animation: sweep 1.1s ease-in-out infinite; }
+.btn.secondary.loading::after { background: linear-gradient(100deg, transparent 20%, var(--accent-soft) 50%, transparent 80%); }
+@keyframes sweep { to { transform: translateX(100%); } }
+.skel { display: block; border-radius: 10px; min-height: 12px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, rgba(255, 255, 255, .7) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%; animation: skel 1.3s ease infinite; }
+:root[data-theme="dark"] .skel { background-image: linear-gradient(90deg, var(--surface-2) 25%, rgba(255, 255, 255, .12) 37%, var(--surface-2) 63%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .skel {
+  background-image: linear-gradient(90deg, var(--surface-2) 25%, rgba(255, 255, 255, .12) 37%, var(--surface-2) 63%); } }
+@keyframes skel { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+.skel.circle { width: 24px; height: 24px; border-radius: 50%; }
+.skel.field-sk { height: 40px; border-radius: 14px; }
+.skel.line { height: 12px; } .skel.title { height: 22px; width: 45%; } .skel.block { height: 92px; border-radius: 18px; }
+.person.skeleton .ctx { display: grid; gap: 6px; }
+
+/* ---------- progress stepper in pending cards ---------- */
+.steps { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.stp { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+  border: 1.5px solid var(--rule); color: var(--muted); background: var(--surface-solid); }
+.stp::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; }
+.stp.active { color: var(--accent); border-color: var(--accent); }
+.stp.active::before { opacity: 1; animation: pulse 1s ease-in-out infinite; }
+.stp.done { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.stp.done::before { content: "✓"; width: auto; height: auto; background: none; opacity: 1; font-size: 11px; }
+@keyframes pulse { 50% { transform: scale(1.6); } }
+
+/* ---------- stale-while-revalidate ---------- */
+.banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; border-radius: 16px; font-size: 14px;
+  font-weight: 600; background: var(--accent-soft); color: var(--ink); border: 1px dashed var(--rule); margin-bottom: 16px; }
+.banner.fresh { background: var(--ok-soft); }
+.result.stale { opacity: .78; }
+.result.stale .chip { border-style: dashed; }
+.updating { font-size: 12px; font-weight: 700; color: var(--accent); display: inline-flex; align-items: center; gap: 6px; }
+.updating .spinner { width: 12px; height: 12px; }
+
+/* ---------- next actions (no dead ends) ---------- */
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.result-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 22px; padding: 18px;
+  border-radius: 24px; background: var(--surface); border: 1.5px solid var(--rule-soft); box-shadow: var(--shadow); }
+.result-actions .hint { margin-right: auto; }
+.error-box { display: grid; gap: 12px; padding: 18px; border-radius: 20px; background: var(--flag-soft); border: 1px solid var(--flag); }
+.error-box p { margin: 0; color: var(--ink); font-weight: 600; }
+.empty-box { display: grid; gap: 12px; justify-items: start; padding: 20px; border-radius: 20px; background: var(--surface); border: 1.5px dashed var(--rule); }
+.empty-box p { margin: 0; color: var(--ink-2); }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; padding: 12px 18px; border-radius: 999px;
+  font-weight: 700; font-size: 14px; color: #fff; background: var(--gel); box-shadow: 0 10px 30px -8px var(--accent); }
+
+/* ---------- How it works: expandable cards with view transitions ---------- */
+.how { grid-auto-flow: dense; }
+.how .how-card { padding: 0; display: grid; }
+.how-toggle { all: unset; box-sizing: border-box; display: block; padding: 24px; cursor: pointer; border-radius: inherit; }
+.how-toggle:focus-visible { outline: 3px solid var(--accent-3); outline-offset: -3px; }
+.how-toggle .open-hint { display: inline-flex; margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--accent); }
+.how-card.expanded { grid-column: 1 / -1; }
+.how-card.expanded .open-hint { display: none; }
+.how-card.expanded .how-toggle { cursor: default; padding-bottom: 6px; }
+.how-card.expanded .how-toggle h4 { font-size: 24px; }
+.how-card .more { padding: 0 24px 24px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.how-card .more h5 { margin: 0 0 6px; font: 700 14px var(--display); }
+.how-card .more ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--ink-2); font-size: 15px; }
+.how-card .more .example { background: var(--surface-2); border-radius: 18px; padding: 14px 16px; font-size: 14px; color: var(--ink-2); }
+.how-card .more .example code { font: 700 12px var(--mono); }
+.how-card .more .close-row { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+::view-transition-group(*) { animation-duration: .38s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+::view-transition-old(*), ::view-transition-new(*) { height: 100%; object-fit: cover; }
+
 /* Continuous (squircle) corners on every rounded rectangle and pill, where supported.
    Squircles look tighter than circular arcs at the same radius, so radii are bumped slightly.
    Circles (avatars, step bubbles, checkboxes, the theme button) keep border-radius: 50%. */
 @supports (corner-shape: squircle) {
   .card, .person, .tie, .cand, .op, .field, .eyebrow, .segmented, .segmented button, .btn, .chip, .tag,
-  .tally span, .switch .track, .nav-links a.active::after, .input-card::before {
+  .tally span, .switch .track, .nav-links a.active::after, .input-card::before, .banner, .error-box, .empty-box,
+  .result-actions, .toast, .stp, .demo-badge, .demo-badge button, .kbd, .skel:not(.circle), .how-card .more .example {
     corner-shape: squircle;
   }
   .card { border-radius: 32px; } .person { border-radius: 26px; } .tie { border-radius: 24px; }
@@ -317,11 +396,17 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   <p class="eyebrow">For health news</p>
   <h1>Who pays <span class="holo">the experts?</span></h1>
   <p class="sub">Paste an article. Conflict Check confirms who each quoted expert is, then finds the funding, consulting and board ties the story didn't mention, with a source for every one.</p>
+  <div class="hero-cta">
+    <button class="btn" id="demo-btn" type="button">✦ Try the live demo</button>
+    <a class="btn secondary" href="#check">Check an article</a>
+  </div>
 </header>
 
 <div class="bg-band" id="check">
   <div class="container">
     <form id="f" class="card input-card">
+      <div class="demo-badge" id="demo-badge" hidden>✦ Demo mode · fictional people and companies, no network
+        <button type="button" data-act="exit-demo">Exit demo</button></div>
       <div class="segmented" role="tablist" aria-label="Article input">
         <button type="button" role="tab" id="tab-url" aria-selected="true" aria-controls="url">Link</button>
         <button type="button" role="tab" id="tab-text" aria-selected="false" aria-controls="text">Paste text</button>
@@ -335,14 +420,15 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
         </div>
         <button class="btn" id="find" type="submit">Find experts</button>
       </div>
+      <p class="hint form-foot">Tip: press <span class="kbd">Ctrl</span>&nbsp;+&nbsp;<span class="kbd">Enter</span> to search.</p>
       <p class="msg" id="msg" role="alert"></p>
     </form>
 
     <section class="block" id="review" hidden aria-labelledby="review-h">
       <div class="section-head"><span class="step">1</span><h2 id="review-h">Review the experts.</h2></div>
       <p class="lead">Fix names and fill in affiliations before searching. Identity is confirmed against the affiliation. Up to 5 are checked.</p>
-      <div class="people" id="rows"></div>
-      <div class="review-actions">
+      <div class="people" id="rows" aria-busy="false"></div>
+      <div class="review-actions" id="review-actions">
         <button class="btn" id="check-btn" type="button">Check selected experts</button>
         <button class="btn secondary" id="add" type="button">+ Add an expert</button>
         <span class="hint" id="count"></span>
@@ -355,6 +441,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   <section class="block" id="results-block" hidden aria-labelledby="results-h">
     <div class="section-head"><span class="step">2</span><h2 id="results-h">Results.</h2></div>
     <p class="lead" id="scope"></p>
+    <div class="banner" id="banner" role="status" hidden></div>
     <div class="results-wrap">
       <main id="results" aria-live="polite"></main>
       <aside class="card activity" aria-label="API activity">
@@ -364,15 +451,86 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
         <div id="calls"></div>
       </aside>
     </div>
+    <div class="result-actions" id="result-actions" hidden>
+      <span class="hint">Done. What next?</span>
+      <button class="btn secondary small" type="button" data-act="edit-experts">Edit experts</button>
+      <button class="btn secondary small" type="button" data-act="copy">Copy summary</button>
+      <button class="btn secondary small" type="button" data-act="download">Download report</button>
+      <button class="btn small" type="button" data-act="new">Check another article</button>
+    </div>
   </section>
 
   <section class="block" id="how" aria-labelledby="how-h">
     <div class="section-head"><h2 id="how-h">How it works.</h2></div>
-    <div class="how">
-      <div class="card"><div class="num">01</div><h4>Find the experts</h4><p>Quoted experts, their roles and affiliations are pulled from the article. Spokespeople and officials are set aside.</p></div>
-      <div class="card"><div class="num">02</div><h4>Confirm who they are</h4><p>ORCID must return exactly one match for the name and affiliation, or you pick the right record. No match, no search.</p></div>
-      <div class="card"><div class="num">03</div><h4>Find disclosed ties</h4><p>Exa searches research papers and Tavily searches the web. A tie counts only if a page names both the person and the organization.</p></div>
-      <div class="card"><div class="num">04</div><h4>Check the money</h4><p>CMS Open Payments confirms payments from the same company to a physician with that name, shown with location so you can judge.</p></div>
+    <p class="lead">Click a step to see exactly what happens.</p>
+    <div class="how" id="how-grid">
+      <article class="card how-card" style="view-transition-name: how-1">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-1">
+          <div class="num">01</div><h4>Find the experts</h4>
+          <p>Quoted experts, their roles and affiliations are pulled from the article. Spokespeople and officials are set aside.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="how-more-1" hidden>
+          <div><h5>What it looks for</h5><ul>
+            <li>Attribution: “said X”, “X says”, “according to X of Y”.</li>
+            <li>Roles and credentials: “X, MD, a cardiologist at Y”, “Y epidemiologist X”, “X, who directs … at Y”.</li>
+            <li>Each person is listed with the sentence they appear in, so you can see why.</li></ul></div>
+          <div><h5>What it sets aside</h5><ul>
+            <li>Spokespeople, CEOs, presidents and officials. They aren't independent experts, so they start unticked.</li>
+            <li>Organizations that look like names (“the nonprofit Public Citizen”).</li>
+            <li>You can edit any name or affiliation, add someone it missed, and check up to five.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: how-2">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-2">
+          <div class="num">02</div><h4>Confirm who they are</h4>
+          <p>ORCID must return exactly one match for the name and affiliation, or you pick the right record. No match, no search.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="how-more-2" hidden>
+          <div><h5>The rule</h5><ul>
+            <li>Search ORCID, the researcher ID registry, for the name plus the affiliation from the article.</li>
+            <li>Exactly one record: confirmed automatically.</li>
+            <li>None or several: “Identity not confirmed”, and nothing is searched.</li></ul></div>
+          <div><h5>When you pick</h5><ul>
+            <li>Candidate records are listed with their institutions.</li>
+            <li>“This is them” re-checks the record's surname against the expert before searching.</li>
+            <li>Why so strict? A common name matched to the wrong person is a false accusation.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: how-3">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-3">
+          <div class="num">03</div><h4>Find disclosed ties</h4>
+          <p>Exa searches research papers and Tavily searches the web. A tie counts only if a page names both the person and the organization.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="how-more-3" hidden>
+          <div><h5>Where it looks</h5><ul>
+            <li>Exa research-paper search for the expert's own conflict-of-interest statements.</li>
+            <li>Tavily search and extract for bios, board pages and disclosures.</li></ul></div>
+          <div><h5>What counts as a tie</h5><ul>
+            <li>A sentence about this person (by name, initials, or he/she right after) with a tie word (consulting, grants, advisory board, stock…) and an organization.</li>
+            <li>In “J.L. reports grants from A; M.O. reports fees from B”, only B belongs to M.O.</li>
+            <li>“Declares no competing interests” is never a tie. Every quote is checked against its page.</li></ul></div>
+          <div class="example"><b>Then it sorts them.</b> Ties to companies named in the story come first. Ties the article already disclosed are folded away. Spellings like “AstraZeneca” and “Astra Zeneca” are merged.</div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: how-4">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-4">
+          <div class="num">04</div><h4>Check the money</h4>
+          <p>CMS Open Payments confirms payments from the same company to a physician with that name, shown with location so you can judge.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="how-more-4" hidden>
+          <div><h5>What it adds</h5><ul>
+            <li>For each tie already found, it looks up 2024–2025 payments from that company to a physician with that name.</li>
+            <li>The badge shows total, number of payments, payment types, city, state and NPI.</li></ul></div>
+          <div><h5>What it won't do</h5><ul>
+            <li>Create a tie on its own. It only supports one found in papers or bios.</li>
+            <li>Show a badge when several physicians with that name were paid. That's ambiguous, so it's withheld.</li>
+            <li>Prove identity. Open Payments lists location, not employer, so check the city.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+        </div>
+      </article>
     </div>
   </section>
 
@@ -395,6 +553,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
     <p>Every quote is checked against the page it came from. No AI model states a connection.</p>
   </footer>
 </div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -402,7 +561,18 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const MAX = 5;
 const STATUS = { connections_found: "Connections not mentioned", no_confirmed_connections: "No confirmed connections",
   identity_not_confirmed: "Identity not confirmed", error: "Error", checking: "Checking" };
-const state = { article: null, experts: [], results: {}, calls: [], mode: "url" };
+const STEPS = [["identity", "Identity", ["orcid"]], ["papers", "Papers", ["exa"]], ["web", "Web", ["tavily"]], ["payments", "Payments", ["openpayments"]]];
+const state = { article: null, experts: [], results: {}, calls: [], mode: "url", demo: false, demoText: null,
+  gen: 0, active: 0, swrKey: null };
+const runOf = new Map();  // expert name -> the run currently checking them
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+/* ---------- small storage helper (never throws) ---------- */
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
 
 /* ---------- theme ---------- */
 const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -421,57 +591,129 @@ $("theme").addEventListener("click", () => {
 media.addEventListener?.("change", paintThemeButton);
 paintThemeButton();
 
-fetch("/api/config").then(r => r.json()).then(c => { $("replay").checked = c.replay_default; }).catch(() => {});
+/* ---------- config: stale-while-revalidate ---------- */
+function applyConfig(c) { if (c && !$("replay").dataset.touched) $("replay").checked = !!c.replay_default; }
+applyConfig(store.get("cc-config"));                       // stale: instant
+fetch("/api/config").then(r => r.json()).then(c => { store.set("cc-config", c); applyConfig(c); }).catch(() => {}); // revalidate
+$("replay").addEventListener("change", () => { $("replay").dataset.touched = "1"; });
 
 /* ---------- input mode ---------- */
-function setMode(mode) {
+function setMode(mode, focus = true) {
   state.mode = mode;
   $("tab-url").setAttribute("aria-selected", mode === "url"); $("tab-text").setAttribute("aria-selected", mode === "text");
   $("url").hidden = mode !== "url"; $("text").hidden = mode !== "text";
-  (mode === "url" ? $("url") : $("text")).focus();
+  if (focus) (mode === "url" ? $("url") : $("text")).focus();
 }
 $("tab-url").addEventListener("click", () => setMode("url"));
 $("tab-text").addEventListener("click", () => setMode("text"));
+for (const el of [$("url"), $("text")]) el.addEventListener("keydown", ev => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") { ev.preventDefault(); $("f").requestSubmit(); }
+});
+
+/* ---------- demo mode ---------- */
+// Demo data is fictional, so it must never mix with a real check: demo mode ends as soon as the
+// article is edited or the Link tab is used, exiting clears everything the demo produced, and a check
+// only runs as a demo when its article was the demo article (state.article.demo).
+function setDemo(on, text = null) {
+  state.demo = on; state.demoText = on ? text : null; $("demo-badge").hidden = !on;
+  $("replay").disabled = on; $("replay").closest(".switch").style.opacity = on ? .5 : "";
+}
+function resetChecks() {
+  state.gen++;  // any check still streaming stops updating the page
+  Object.assign(state, { article: null, experts: [], results: {}, calls: [], swrKey: null });
+  for (const id of ["review", "results-block", "result-actions", "banner"]) $(id).hidden = true;
+  $("rows").innerHTML = ""; $("results").innerHTML = ""; $("scope").textContent = ""; renderCalls();
+}
+function exitDemo(message) {
+  if (!state.demo) return;
+  setDemo(false); resetChecks(); toast(message);
+}
+$("text").addEventListener("input", () => { if (state.demo && $("text").value !== state.demoText) exitDemo("Demo mode off: you edited the article."); });
+$("url").addEventListener("input", () => exitDemo("Demo mode off: checking a real article."));
+$("tab-url").addEventListener("click", () => exitDemo("Demo mode off: checking a real article."));
+async function startDemo(btn) {
+  busy(btn, "Loading demo");
+  try {
+    const r = await fetch("/api/demo");
+    if (!r.ok) throw new Error("The demo article couldn't be loaded.");
+    const { text } = await r.json();
+    setMode("text", false); $("text").value = text; setDemo(true, text);
+    busy(btn);
+    $("check").scrollIntoView({ behavior: smooth(), block: "start" });
+    await findExperts();
+  } catch (e) { toast(e.message); busy(btn); }
+}
+$("demo-btn").addEventListener("click", ev => startDemo(ev.currentTarget));
 
 /* ---------- name masking (demo safety) ---------- */
-function mask(s) {
-  let t = String(s ?? "");
-  if ($("mask").checked) state.experts.forEach((e, i) => {
-    if (!e.name) return;
-    const alias = "Expert " + String.fromCharCode(65 + i), parts = e.name.trim().split(/\s+/);
-    for (const p of [e.name.trim(), parts[parts.length - 1]]) if (p.length > 1) t = t.split(p).join(alias);
+// Whole words only (so "Lee" never changes "Leeds"), any case, and Unicode-aware. The full name also
+// matches URL slugs ("maren-okafor", "maren_okafor"), and the bare surname matches "/okafor" in links.
+const NAME_SUFFIXES = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "junior", "júnior", "filho", "neto", "sobrinho"]);
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function maskTerms() {
+  const terms = [];
+  state.experts.forEach((e, i) => {
+    const parts = (e.name || "").trim().split(/\s+/).filter(Boolean); if (parts.length < 2) return;
+    const named = parts.filter(p => !NAME_SUFFIXES.has(p.toLowerCase()));
+    const alias = "Expert " + String.fromCharCode(65 + i);
+    terms.push([parts.map(reEsc).join("[\\s\\-_.]+"), alias]);           // full name, also as a slug
+    const last = named[named.length - 1];
+    if (last && last.length > 1) terms.push([reEsc(last), alias]);     // surname on its own
   });
-  return esc(t);
+  return terms.map(([p, alias]) => [new RegExp(`(?<![\\p{L}\\p{N}])${p}(?![\\p{L}\\p{N}])`, "giu"), alias]);
 }
+function maskText(s) {
+  let t = String(s ?? "");
+  if ($("mask").checked) for (const [re, alias] of maskTerms()) t = t.replace(re, alias);
+  return t;
+}
+function mask(s) { return esc(maskText(s)); }
 
 /* ---------- step 1: find experts ---------- */
-$("f").addEventListener("submit", async ev => {
-  ev.preventDefault(); $("msg").textContent = "";
+$("f").addEventListener("submit", ev => { ev.preventDefault(); findExperts(); });
+
+async function findExperts() {
+  if ($("find").disabled) return;  // a search is already running (e.g. a second Ctrl+Enter)
+  $("msg").textContent = "";
   const url = state.mode === "url" ? $("url").value.trim() : "", text = state.mode === "text" ? $("text").value : "";
   if (!url && !text.trim()) { $("msg").textContent = state.mode === "url" ? "Enter an article link." : "Paste the article text."; return; }
+  const demo = state.demo && !url && text === state.demoText;  // only the demo article runs on demo data
   busy($("find"), "Finding experts");
+  $("review").hidden = false; showReviewSkeleton();
+  $("review").scrollIntoView({ behavior: smooth(), block: "start" });
   try {
     const r = await fetch("/api/experts", { method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ url, text, replay: $("replay").checked }) });
-    const data = await r.json();
+      body: JSON.stringify({ url, text, replay: $("replay").checked, demo }) });
+    const data = await r.json().catch(() => ({ error: "The server sent an unreadable reply." }));
     if (!r.ok) throw new Error(data.error || r.statusText);
-    state.article = { url: data.article.url, text: data.text };
+    state.gen++;  // a new article: older checks still streaming must not touch the page
+    state.article = { url: data.article.url, text: data.text, demo };
     state.experts = data.experts.map(e => ({ ...e }));
     state.results = {}; state.calls = data.calls.slice();
     renderReview(); renderCalls(); $("results").innerHTML = ""; $("scope").textContent = "";
-    $("results-block").hidden = true; $("review").hidden = false;
-    $("review").scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (e) { $("msg").textContent = e.message; }
-  finally { busy($("find")); }
-});
+    $("results-block").hidden = true; $("result-actions").hidden = true; $("banner").hidden = true;
+  } catch (e) {
+    $("rows").innerHTML = errorBox(e.message, "retry-find"); $("review-actions").hidden = true;
+  } finally { busy($("find")); $("rows").setAttribute("aria-busy", "false"); }
+}
+
+function showReviewSkeleton() {
+  $("rows").setAttribute("aria-busy", "true"); $("review-actions").hidden = true;
+  $("rows").innerHTML = [1, 2, 3].map(() => `<div class="person skeleton" aria-hidden="true">
+    <span class="skel circle"></span><span class="skel field-sk"></span><span class="skel field-sk aff"></span>
+    <div class="ctx"><span class="skel line" style="width:92%"></span><span class="skel line" style="width:60%"></span></div></div>`).join("");
+}
 
 function renderReview() {
-  $("rows").innerHTML = state.experts.map((e, i) => `<div class="person ${e.selected ? "" : "off"}">
+  $("review-actions").hidden = false;
+  $("rows").innerHTML = state.experts.length ? state.experts.map((e, i) => `<div class="person ${e.selected ? "" : "off"}" data-row="${i}">
     <label class="check-hit"><input class="check" type="checkbox" data-i="${i}" data-k="selected" ${e.selected ? "checked" : ""} aria-label="Check ${esc(e.name || "this expert")}"></label>
     <input class="field" type="text" data-i="${i}" data-k="name" value="${esc(e.name)}" placeholder="First and last name" aria-label="Name">
     <input class="field aff" type="text" data-i="${i}" data-k="affiliation" value="${esc(e.affiliation || "")}" placeholder="Affiliation, e.g. Lakeside University" aria-label="Affiliation">
     <div class="ctx">${e.kind === "other" ? `<b>Not an independent expert${e.role ? " (" + esc(e.role) + ")" : ""}.</b> ` : ""}${e.added ? "Added by you." : mask(e.context)}</div>
-  </div>`).join("") || `<p class="hint">No quoted experts found. Add one below.</p>`;
+  </div>`).join("") : `<div class="empty-box"><p>No quoted experts were found in this article. Add one by hand, or try the demo article.</p>
+    <div class="card-actions"><button class="btn small" type="button" data-act="add">+ Add an expert</button>
+    <button class="btn secondary small" type="button" data-act="demo">Try the demo article</button></div></div>`;
   updateCount();
 }
 $("rows").addEventListener("input", ev => {
@@ -480,57 +722,207 @@ $("rows").addEventListener("input", ev => {
   if (el.type === "checkbox") el.closest(".person").classList.toggle("off", !el.checked);
   updateCount();
 });
-$("add").addEventListener("click", () => {
+function addExpert() {
   state.experts.push({ name: "", affiliation: "", added: true, selected: true }); renderReview();
   $("rows").querySelector(".person:last-child input[data-k=name]").focus();
-});
+}
+$("add").addEventListener("click", addExpert);
 function updateCount() {
   const n = state.experts.filter(e => e.selected).length;
   $("count").textContent = `${n} selected` + (n > MAX ? `. Only the first ${MAX} will be checked.` : "");
 }
 
-/* ---------- step 2: stream the check ---------- */
+/* ---------- step 2: stream the check (with stale-while-revalidate) ---------- */
+function hash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = (h * 33 ^ s.charCodeAt(i)) >>> 0; return h.toString(36); }
+function swrKey(experts) {
+  return "cc-res:" + hash(JSON.stringify([state.article.url, state.article.text, state.demo, $("replay").checked,
+    experts.map(e => [e.name.trim(), (e.affiliation || "").trim(), e.orcid || ""])]));
+}
+function saveResult() {
+  if (!state.swrKey) return;
+  const index = (store.get("cc-res-index") || []).filter(k => k !== state.swrKey);
+  index.unshift(state.swrKey);
+  for (const old of index.splice(8)) store.del(old);            // keep the last 8 checks
+  store.set(state.swrKey, { at: Date.now(), results: state.results });
+  store.set("cc-res-index", index);
+}
+
 $("check-btn").addEventListener("click", () => {
   const chosen = state.experts.filter(e => e.selected && (e.name || "").trim().split(/\s+/).length >= 2).slice(0, MAX);
   if (!chosen.length) { $("count").textContent = "Select at least one expert with a first and last name."; return; }
-  state.results = {}; state.calls = [];
-  chosen.forEach(e => state.results[e.name.trim()] = { name: e.name.trim(), affiliation: e.affiliation, status: "checking" });
-  $("results-block").hidden = false; renderResults(); renderCalls();
-  $("results-block").scrollIntoView({ behavior: "smooth", block: "start" });
-  runStream(chosen, $("check-btn"));
+  state.results = {}; state.calls = []; state.swrKey = swrKey(chosen);
+  const cached = store.get(state.swrKey);
+  chosen.forEach(e => {
+    const name = e.name.trim(), old = cached && cached.results && cached.results[name];
+    state.results[name] = old ? { ...old, stale: true } : { name, affiliation: e.affiliation, status: "checking", progress: {} };
+  });
+  showBanner(cached ? `Showing your last result from ${ago(cached.at)} while it refreshes…` : "", false);
+  $("results-block").hidden = false; $("result-actions").hidden = true;
+  renderResults(); renderCalls();
+  $("results-block").scrollIntoView({ behavior: smooth(), block: "start" });
+  runStream(chosen, $("check-btn"), true);
 });
 
-async function runStream(experts, btn) {
-  busy(btn, "Checking");
+// Each check is its own run with its own progress (order/idx), so a "This is them" re-check can stream
+// alongside the main check without mislabelling either. A run belongs to a generation: starting a new
+// full check or a new article bumps state.gen, and older runs then stop touching the page.
+async function runStream(experts, btn, full) {
+  if (full) state.gen++;
+  const run = { gen: state.gen, full, order: [], idx: -1, names: experts.map(e => e.name.trim()) };
+  run.names.forEach(n => runOf.set(n, run));
+  state.active++; busy(btn, "Checking"); renderCalls();
   try {
     const r = await fetch("/api/check/stream", { method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ url: state.article.url, text: state.article.text, replay: $("replay").checked,
+      body: JSON.stringify({ url: state.article.url, text: state.article.text, replay: $("replay").checked, demo: !!state.article.demo,
         experts: experts.map(e => ({ name: e.name.trim(), affiliation: e.affiliation, role: e.role, context: e.context, orcid: e.orcid, added: e.added })) }) });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
     const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
     for (;;) {
       const { value, done } = await reader.read(); if (done) break;
       buf += dec.decode(value, { stream: true });
-      let nl; while ((nl = buf.indexOf("\n")) >= 0) { handle(JSON.parse(buf.slice(0, nl))); buf = buf.slice(nl + 1); }
+      let nl; while ((nl = buf.indexOf("\n")) >= 0) { handle(JSON.parse(buf.slice(0, nl)), run); buf = buf.slice(nl + 1); }
     }
-  } catch (e) { $("msg").textContent = e.message; }
-  finally { busy(btn); }
+  } catch (e) {
+    // Never leave this run's cards spinning: mark them failed, with a retry.
+    failPending(run, e.message || "The connection was lost.");
+  } finally { state.active--; busy(btn); renderCalls(); }
 }
 
-function handle(ev) {
-  if (ev.type === "call") { state.calls.push(ev.call); renderCalls(); }
-  else if (ev.type === "expert") { state.results[ev.expert.name] = ev.expert; renderResults(); }
-  else if (ev.type === "done") { $("scope").textContent = ev.result.scope_note; }
-  else if (ev.type === "error") { $("scope").textContent = ""; $("results").insertAdjacentHTML("afterbegin", `<p class="msg">${esc(ev.error)}</p>`); }
+function failPending(run, error) {
+  if (run.gen !== state.gen) return;
+  for (const n of run.names) { const r = state.results[n];
+    if (r && (r.status === "checking" || r.stale)) state.results[n] = { ...r, stale: false, status: "error", error }; }
+  renderResults(); if (run.full) showBanner("", false);
+  $("result-actions").hidden = false;
 }
 
-/* ---------- one-click identity pick ---------- */
+function handle(ev, run) {
+  if (run.gen !== state.gen) return;  // superseded by a newer check or article
+  if (ev.type === "start") { run.order = ev.experts; run.idx = 0; renderResults(); }
+  else if (ev.type === "call") {
+    state.calls.push(ev.call); renderCalls();
+    const name = run.order[run.idx], res = name && state.results[name];
+    if (res && res.status === "checking") {
+      const step = STEPS.find(s => s[2].includes(ev.call.api));
+      if (step) { res.progress = res.progress || {}; for (const s of STEPS) { if (s === step) break; res.progress[s[0]] = res.progress[s[0]] || "done"; }
+        res.progress[step[0]] = "active"; updateCard(name); }
+    }
+  }
+  else if (ev.type === "expert") { state.results[ev.expert.name] = ev.expert; run.idx++; updateCard(ev.expert.name); }
+  else if (ev.type === "done") {
+    $("scope").textContent = ev.result.scope_note;
+    saveResult();
+    if (run.full) showBanner(state.swrKey && $("banner").textContent ? "Up to date." : "", true);
+    $("result-actions").hidden = false;
+  }
+  else if (ev.type === "error") failPending(run, ev.error);
+}
+
+/* ---------- result card actions ---------- */
 $("results").addEventListener("click", ev => {
-  const b = ev.target.closest("button[data-orcid]"); if (!b) return;
-  const name = b.dataset.name, src = state.experts.find(e => (e.name || "").trim() === name) || { name };
-  state.results[name] = { ...state.results[name], status: "checking", identity: null };
-  renderResults();
-  runStream([{ ...src, orcid: b.dataset.orcid }], b);
+  const pick = ev.target.closest("button[data-orcid]");
+  const retry = ev.target.closest("button[data-retry]");
+  const edit = ev.target.closest("button[data-edit]");
+  if (pick || retry) {
+    const name = (pick || retry).dataset.name;
+    const src = state.experts.find(e => (e.name || "").trim() === name) || { name, affiliation: state.results[name]?.affiliation };
+    state.results[name] = { name, affiliation: src.affiliation, status: "checking", progress: {} };
+    updateCard(name);
+    runStream([{ ...src, orcid: pick ? pick.dataset.orcid : src.orcid }], pick || retry, false);
+  } else if (edit) {
+    const i = state.experts.findIndex(e => (e.name || "").trim() === edit.dataset.name);
+    $("review").scrollIntoView({ behavior: smooth(), block: "start" });
+    const row = $("rows").querySelector(`[data-row="${i}"] input[data-k=affiliation]`);
+    if (row) setTimeout(() => row.focus(), reduceMotion.matches ? 0 : 450);
+  }
+});
+
+/* ---------- page-wide actions (no dead ends) ---------- */
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act;
+  if (act === "retry-find") findExperts();
+  else if (act === "replay-off") { $("replay").checked = false; $("replay").dataset.touched = "1"; findExperts(); }
+  else if (act === "demo") startDemo(b);
+  else if (act === "exit-demo") { exitDemo("Demo mode off. Demo results cleared."); $("text").value = ""; setMode("url"); }
+  else if (act === "add") addExpert();
+  else if (act === "edit-experts") $("review").scrollIntoView({ behavior: smooth(), block: "start" });
+  else if (act === "copy") copySummary();
+  else if (act === "download") downloadReport();
+  else if (act === "new") {
+    $("check").scrollIntoView({ behavior: smooth(), block: "start" });
+    const input = state.mode === "url" ? $("url") : $("text");
+    input.focus({ preventScroll: true }); input.select();
+  }
+  else if (act === "close-how") toggleHow(b.closest(".how-card"), false);
+});
+
+function errorBox(msg, retryAct) {
+  const fixes = [];
+  if (/replay/i.test(msg)) fixes.push(`<button class="btn secondary small" type="button" data-act="replay-off">Turn off replay mode</button>`);
+  if (/API_KEY|not set/i.test(msg)) fixes.push(`<button class="btn secondary small" type="button" data-act="demo">Use the demo instead</button>`);
+  return `<div class="error-box" role="alert"><p>${esc(msg)}</p><div class="card-actions">
+    <button class="btn small" type="button" data-act="${retryAct}">Try again</button>${fixes.join("")}</div></div>`;
+}
+
+function summaryText() {
+  const lines = [`Conflict Check: ${state.article?.url || "pasted article"}${state.article?.demo ? " (demo, fictional data)" : ""}`, ""];
+  for (const e of Object.values(state.results)) {
+    lines.push(`${e.name}${e.affiliation ? ", " + e.affiliation : ""}: ${STATUS[e.status] || e.status}`);
+    for (const t of e.ties || []) lines.push(`  - ${t.org} (${t.category || t.relation}; ${t.related_to_story ? "named in this story" : "not named in this story"}): ${t.evidence[0]?.url || ""}`);
+  }
+  return maskText(lines.join("\n"));  // masks names in text and in links (".../people/maren-okafor")
+}
+async function copySummary() {
+  try { await navigator.clipboard.writeText(summaryText()); toast("Summary copied."); }
+  catch (e) { toast("Couldn't copy. Use Download report instead."); }
+}
+function downloadReport() {
+  const masked = $("mask").checked;
+  const json = JSON.stringify({ generated: new Date().toISOString(), demo: !!state.article?.demo, masked,
+    article: { url: state.article?.url }, experts: Object.values(state.results), calls: state.calls }, null, 1);
+  // With Mask names on, the file is masked too (whole words and link slugs); the replacement contains
+  // no quotes or backslashes, so the JSON stays valid.
+  const blob = new Blob([maskText(json)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = masked ? "conflict-check-report-masked.json" : "conflict-check-report.json";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(masked ? "Masked report downloaded." : "Report downloaded.");
+}
+
+/* ---------- How it works: expand with a view transition ---------- */
+function toggleHow(card, open) {
+  const apply = () => {
+    for (const c of document.querySelectorAll(".how-card")) {
+      const on = c === card && open;
+      c.classList.toggle("expanded", on);
+      c.querySelector(".how-toggle").setAttribute("aria-expanded", on);
+      c.querySelector(".more").hidden = !on;
+    }
+  };
+  if (document.startViewTransition && !reduceMotion.matches) {
+    // A quick second click skips the running transition; that rejection is expected, not an error.
+    const vt = document.startViewTransition(apply);
+    vt.ready.catch(() => {});
+    vt.finished.then(() => focusHow(card, open), () => {});
+  } else { apply(); focusHow(card, open); }
+}
+function focusHow(card, open) {
+  // Runs after the transition finishes, so it must not fight anything the user did meanwhile:
+  // never scroll on close, and only take focus back if it was inside the card (or nowhere).
+  if (open) { if (card.classList.contains("expanded")) card.scrollIntoView({ behavior: smooth(), block: "nearest" }); return; }
+  const a = document.activeElement;
+  if (!a || a === document.body || card.contains(a)) card.querySelector(".how-toggle").focus({ preventScroll: true });
+}
+$("how-grid").addEventListener("click", ev => {
+  const t = ev.target.closest(".how-toggle"); if (!t) return;
+  const card = t.closest(".how-card"); toggleHow(card, !card.classList.contains("expanded"));
+});
+document.addEventListener("keydown", ev => {
+  if (ev.key !== "Escape") return;
+  if (ev.target.closest?.("input, textarea, select, [contenteditable]")) return;  // Esc while typing isn't for the cards
+  const open = document.activeElement?.closest?.(".how-card.expanded") || document.querySelector(".how-card.expanded");
+  if (open) toggleHow(open, false);
 });
 
 /* ---------- rendering ---------- */
@@ -542,7 +934,7 @@ function badge(op) {
     <small>CMS Open Payments. ${esc(op.note)}</small></div>`;
 }
 function tieHtml(t, cls) {
-  const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title || e.url)}</a> · via ${esc(e.api)}</span></blockquote>`).join("");
+  const ev = t.evidence.map(e => `<blockquote>“${mask(e.quote)}”<span class="src"><a href="${esc(e.url)}" target="_blank" rel="noopener">${mask(e.title || e.url)}</a> · via ${esc(e.api)}</span></blockquote>`).join("");
   const where = cls === "disc" ? "disclosed in article" : t.related_to_story ? "named in this story" : "not named in this story";
   return `<div class="tie ${cls}"><div class="tie-head"><b>${esc(t.org)}</b><span class="tag">${esc(t.category || t.relation)}</span><span class="tag">${where}</span></div>${ev}${badge(t.open_payments)}</div>`;
 }
@@ -555,34 +947,76 @@ function identityHtml(e) {
      <button class="btn small" data-orcid="${esc(c.orcid)}" data-name="${esc(e.name)}">This is them</button></div>`).join("")}</div>` : "";
   return `<p class="identity">${mask(id.reason)}${link}</p>${cands}`;
 }
+function pendingHtml(e) {
+  const run = runOf.get(e.name);
+  const p = e.progress || {}, waiting = !!(run && run.order.length && run.order[run.idx] !== e.name);
+  return `<article class="card result pending" data-card="${esc(e.name)}" aria-busy="true">
+    <div class="r-head"><div><h3>${mask(e.name)}</h3><div class="who">${mask(e.affiliation || "")}</div></div>
+      <span class="chip checking">${waiting ? "Queued" : "Checking"}</span></div>
+    <ol class="steps" aria-label="Progress">${STEPS.map(([k, label]) => `<li class="stp ${p[k] || ""}">${label}</li>`).join("")}</ol>
+    <span class="skel line" style="width:80%"></span><span class="skel block"></span><span class="skel line" style="width:40%"></span>
+  </article>`;
+}
+function cardHtml(e) {
+  if (e.status === "checking") return pendingHtml(e);
+  const ties = e.ties || [], related = ties.filter(t => t.related_to_story), other = ties.filter(t => !t.related_to_story);
+  const who = [e.role, e.affiliation].filter(Boolean).join(", ") || "No role or affiliation given";
+  const actions = [];
+  if (e.status === "error") actions.push(`<button class="btn small" type="button" data-retry="1" data-name="${esc(e.name)}">Retry</button>`);
+  if (e.status === "identity_not_confirmed" && !(e.identity?.candidates || []).length || e.status === "error")
+    actions.push(`<button class="btn secondary small" type="button" data-edit="1" data-name="${esc(e.name)}">Edit name or affiliation</button>`);
+  return `<article class="card result ${e.stale ? "stale" : ""}" data-card="${esc(e.name)}">
+    <div class="r-head"><div><h3>${mask(e.name)}</h3><div class="who">${mask(who)}</div></div>
+      <div>${e.stale ? `<span class="updating"><span class="spinner" aria-hidden="true"></span>Updating</span> ` : ""}<span class="chip ${e.status}">${STATUS[e.status] || esc(e.status)}</span></div></div>
+    ${identityHtml(e)}
+    ${e.error ? `<p class="msg" style="text-align:left">${esc(e.error)}</p>` : ""}
+    ${related.map(t => tieHtml(t, "")).join("")}
+    ${other.length ? `<details><summary>${other.length} other connection${other.length === 1 ? "" : "s"}, not named in this story</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
+    ${(e.disclosed || []).length ? `<details><summary>${e.disclosed.length} connection${e.disclosed.length === 1 ? "" : "s"} the article disclosed</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
+    ${e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
+    ${actions.length ? `<div class="card-actions">${actions.join("")}</div>` : ""}
+  </article>`;
+}
 function renderResults() {
   const list = Object.values(state.results);
-  $("results").innerHTML = list.length ? list.map(e => {
-    const ties = e.ties || [], related = ties.filter(t => t.related_to_story), other = ties.filter(t => !t.related_to_story);
-    const who = [e.role, e.affiliation].filter(Boolean).join(", ") || "No role or affiliation given";
-    return `<article class="card result ${e.status === "checking" ? "pending" : ""}">
-      <div class="r-head"><div><h3>${mask(e.name)}</h3><div class="who">${mask(who)}</div></div>
-        <span class="chip ${e.status}">${STATUS[e.status] || esc(e.status)}</span></div>
-      ${identityHtml(e)}
-      ${e.error ? `<p class="msg" style="text-align:left">${esc(e.error)}</p>` : ""}
-      ${related.map(t => tieHtml(t, "")).join("")}
-      ${other.length ? `<details><summary>${other.length} other connection${other.length === 1 ? "" : "s"}, not named in this story</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
-      ${(e.disclosed || []).length ? `<details><summary>${e.disclosed.length} connection${e.disclosed.length === 1 ? "" : "s"} the article disclosed</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
-      ${e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
-    </article>`; }).join("") : `<p class="empty">No results yet.</p>`;
+  $("results").innerHTML = list.length ? list.map(cardHtml).join("") : `<p class="empty">No results yet.</p>`;
+}
+function updateCard(name) {
+  const el = [...$("results").querySelectorAll("[data-card]")].find(c => c.dataset.card === name);
+  const e = state.results[name]; if (!e) return;
+  if (!el) return renderResults();
+  const open = [...el.querySelectorAll("details")].map(d => d.open);   // keep expanded sections open
+  el.outerHTML = cardHtml(e);
+  const fresh = [...$("results").querySelectorAll("[data-card]")].find(c => c.dataset.card === name);
+  fresh?.querySelectorAll("details").forEach((d, i) => { if (open[i]) d.open = true; });
+  // the next queued card now shows "Checking"
+  const run = runOf.get(name), next = run && run.order[run.idx];
+  if (next && next !== name && state.results[next]?.status === "checking") updateCard(next);
 }
 function renderCalls() {
   const by = {}; state.calls.forEach(c => by[c.api] = (by[c.api] || 0) + 1);
   $("tally").innerHTML = Object.entries(by).map(([k, v]) => `<span>${esc(k)} · ${v}</span>`).join("");
   $("calls").innerHTML = state.calls.map(c => `<div class="call"><div class="top"><span class="api ${esc(c.api)}">${esc(c.api)}</span>
     <span class="meta ${esc(c.source)}">${esc(c.source)} · ${c.ms} ms</span></div><span class="label">${mask(c.label)}</span>
-    ${c.error ? `<span class="meta error">${esc(c.error)}</span>` : ""}</div>`).join("") || `<p class="hint">No calls yet.</p>`;
+    ${c.error ? `<span class="meta error">${esc(c.error)}</span>` : ""}</div>`).join("")
+    || (state.active > 0 ? [1, 2, 3].map(() => `<div class="call" aria-hidden="true"><span class="skel line" style="width:40%"></span><span class="skel line"></span></div>`).join("")
+                      : `<p class="hint">No calls yet.</p>`);
   $("calls").scrollTop = $("calls").scrollHeight;
 }
-function busy(btn, label) {
-  if (label) { btn.dataset.label = btn.innerHTML; btn.innerHTML = `<span class="spinner" aria-hidden="true"></span>${esc(label)}`; btn.disabled = true; }
-  else if (btn.dataset.label != null) { btn.innerHTML = btn.dataset.label; btn.disabled = false; }
+function showBanner(text, fresh) {
+  $("banner").hidden = !text; $("banner").textContent = text; $("banner").classList.toggle("fresh", !!fresh);
+  if (fresh && text) setTimeout(() => { if ($("banner").textContent === text) $("banner").hidden = true; }, 3500);
 }
+function busy(btn, label) {
+  if (!btn) return;
+  if (label) { if (btn.dataset.label == null) btn.dataset.label = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner" aria-hidden="true"></span>${esc(label)}`; btn.disabled = true; btn.classList.add("loading"); btn.setAttribute("aria-busy", "true"); }
+  else if (btn.dataset.label != null) { btn.innerHTML = btn.dataset.label; delete btn.dataset.label; btn.disabled = false; btn.classList.remove("loading"); btn.removeAttribute("aria-busy"); }
+}
+let toastTimer;
+function toast(msg) { $("toast").textContent = msg; $("toast").hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").hidden = true, 2600); }
+function smooth() { return reduceMotion.matches ? "auto" : "smooth"; }
+function ago(t) { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? "just now" : s < 3600 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago"; }
 $("mask").addEventListener("change", () => { renderReview(); renderResults(); renderCalls(); });
 
 /* ---------- nav: highlight the section in view ---------- */
