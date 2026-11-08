@@ -76,10 +76,6 @@
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 72px; } /* anchors land below the sticky nav */
 body { margin: 0; color: var(--ink); font: 16px/1.55 var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh;
   background: var(--page); background-attachment: fixed; }
-/* faint perspective-free grid, a Y2K staple */
-body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
-  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 44px 44px; mask-image: linear-gradient(180deg, #000, transparent 85%); }
 a { color: var(--accent); text-decoration: none; font-weight: 500; } a:hover { text-decoration: underline; }
 button, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--accent-3); outline-offset: 3px; }
@@ -269,7 +265,7 @@ details > .tie { margin-top: 10px; }
 .how h4 { font: 700 18px/1.25 var(--display); margin: 0 0 6px; letter-spacing: -.02em; }
 .how p { margin: 0; color: var(--muted); font-size: 15px; }
 .limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
-.limits .card { padding: 24px; display: grid; gap: 8px; align-content: start; }
+
 .limits .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--gel);
   box-shadow: 0 4px 12px -4px var(--accent), inset 0 2px 0 rgba(255, 255, 255, .5); }
 .limits .icon svg { width: 20px; height: 20px; }
@@ -339,8 +335,12 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   font-weight: 700; font-size: 14px; color: #fff; background: var(--gel); box-shadow: 0 10px 30px -8px var(--accent); }
 
 /* ---------- How it works: expandable cards with view transitions ---------- */
-.how { grid-auto-flow: dense; }
-.how .how-card { padding: 0; display: grid; }
+.xgrid { grid-auto-flow: dense; }
+.xgrid .how-card { padding: 0; display: grid; align-content: start; }
+.limits .how-toggle { display: grid; gap: 8px; align-content: start; }
+.limits .how-card.expanded .how-toggle h4 { font-size: 24px; }
+.how-card { transition: transform .2s; }
+.how-card:hover { transform: translateY(-3px); } .how-card.expanded:hover { transform: none; }
 .how-toggle { all: unset; box-sizing: border-box; display: block; padding: 24px; cursor: pointer; border-radius: inherit; }
 .how-toggle:focus-visible { outline: 3px solid var(--accent-3); outline-offset: -3px; }
 .how-toggle .open-hint { display: inline-flex; margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--accent); }
@@ -356,6 +356,59 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 .how-card .more .close-row { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 ::view-transition-group(*) { animation-duration: .38s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
 ::view-transition-old(*), ::view-transition-new(*) { height: 100%; object-fit: cover; }
+
+/* ---------- Y2K retro backgrounds ----------
+   Layers, back to front: page wash (body) -> fixed .bg-fx (drifting iridescent orbs, starburst tile,
+   scanlines) -> hero neon perspective floor -> content on glass cards. */
+:root { --floor: rgba(122, 60, 255, .35); --floor-glow: rgba(255, 63, 180, .25); --scan: rgba(122, 60, 255, .035); }
+:root[data-theme="dark"] { --floor: rgba(255, 95, 200, .55); --floor-glow: rgba(59, 227, 255, .3); --scan: rgba(0, 0, 0, .22); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --floor: rgba(255, 95, 200, .55); --floor-glow: rgba(59, 227, 255, .3); --scan: rgba(0, 0, 0, .22); } }
+
+.bg-fx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+/* starburst tile: four-point sparkles + dots, like a 2000s wallpaper */
+.bg-fx::before { content: ""; position: absolute; inset: 0; opacity: .55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg fill='%23ff3fb4' opacity='.55'%3E%3Cpath d='M30 14l3 11 11 3-11 3-3 11-3-11-11-3 11-3z'/%3E%3C/g%3E%3Cg fill='%237a3cff' opacity='.45'%3E%3Cpath d='M128 96l2 7 7 2-7 2-2 7-2-7-7-2 7-2z'/%3E%3Ccircle cx='96' cy='30' r='1.6'/%3E%3Ccircle cx='160' cy='150' r='1.4'/%3E%3C/g%3E%3Cg fill='%2300c2e8' opacity='.5'%3E%3Ccircle cx='60' cy='140' r='1.8'/%3E%3Cpath d='M150 40l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 180px 180px; mask-image: radial-gradient(ellipse at 50% 20%, #000 20%, transparent 75%); }
+/* CRT scanlines */
+.bg-fx::after { content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(180deg, var(--scan) 0 1px, transparent 1px 3px); }
+/* drifting iridescent "CD shine" orbs */
+.orb { position: absolute; border-radius: 50%; filter: blur(42px); opacity: .55; will-change: transform; }
+.orb.o1 { width: 46vmax; height: 46vmax; left: -14vmax; top: -12vmax; background: conic-gradient(from 20deg, #ff9be6, #c3a6ff, #8fe8ff, #b8ffd9, #ffe59a, #ff9be6);
+  animation: drift1 26s ease-in-out infinite alternate; }
+.orb.o2 { width: 38vmax; height: 38vmax; right: -12vmax; top: 18vh; background: conic-gradient(from 200deg, #8fe8ff, #ff9be6, #c3a6ff, #8fe8ff);
+  animation: drift2 32s ease-in-out infinite alternate; }
+.orb.o3 { width: 34vmax; height: 34vmax; left: 30vw; bottom: -18vmax; background: conic-gradient(from 90deg, #c3a6ff, #ffe59a, #ff9be6, #c3a6ff);
+  animation: drift3 38s ease-in-out infinite alternate; }
+:root[data-theme="dark"] .orb { opacity: .32; mix-blend-mode: screen; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .orb { opacity: .32; mix-blend-mode: screen; } }
+@keyframes drift1 { to { transform: translate(8vw, 10vh) rotate(160deg) scale(1.08); } }
+@keyframes drift2 { to { transform: translate(-10vw, 14vh) rotate(-140deg) scale(.92); } }
+@keyframes drift3 { to { transform: translate(-6vw, -12vh) rotate(120deg) scale(1.1); } }
+
+/* hero: neon perspective grid floor receding to a glowing horizon */
+.hero { isolation: isolate; padding-bottom: 120px; }
+.hero::before { content: ""; position: absolute; left: 0; right: 0; bottom: 34%; height: 2px; z-index: -1;
+  background: linear-gradient(90deg, transparent, var(--accent-2), var(--accent-3), var(--accent), transparent);
+  box-shadow: 0 0 24px 4px var(--floor-glow); opacity: .9; }
+.hero::after { content: ""; position: absolute; left: -50%; right: -50%; bottom: 0; height: 34%; z-index: -1;
+  background-image: linear-gradient(var(--floor) 2px, transparent 2px), linear-gradient(90deg, var(--floor) 2px, transparent 2px);
+  background-size: 64px 40px; transform: perspective(420px) rotateX(58deg); transform-origin: top center;
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, .6) 40%, transparent 100%);
+  animation: floor 3.5s linear infinite; }
+@keyframes floor { to { background-position: 0 40px; } }
+@media (max-width: 600px) { .hero { padding-bottom: 90px; } }
+
+/* holographic band behind How it works */
+#how { position: relative; }
+#how::before { content: ""; position: absolute; z-index: -1; left: 50%; width: 100vw; transform: translateX(-50%); top: 0; bottom: 0;
+  background: linear-gradient(120deg, rgba(255, 155, 230, .22), rgba(143, 232, 255, .22) 45%, rgba(195, 166, 255, .22));
+  border-block: 1px solid var(--rule-soft); }
+:root[data-theme="dark"] #how::before { background: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #how::before {
+  background: linear-gradient(120deg, rgba(255, 63, 180, .1), rgba(59, 227, 255, .08) 45%, rgba(122, 60, 255, .14)); } }
+body { overflow-x: clip; } /* the full-bleed band must not cause sideways scroll; clip keeps the sticky nav working */
 
 /* Continuous (squircle) corners on every rounded rectangle and pill, where supported.
    Squircles look tighter than circular arcs at the same radius, so radii are bumped slightly.
@@ -375,6 +428,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 </style>
 </head>
 <body>
+<div class="bg-fx" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
 
 <nav class="nav" aria-label="Main">
   <div class="nav-in">
@@ -463,7 +517,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
   <section class="block" id="how" aria-labelledby="how-h">
     <div class="section-head"><h2 id="how-h">How it works.</h2></div>
     <p class="lead">Click a step to see exactly what happens.</p>
-    <div class="how" id="how-grid">
+    <div class="how xgrid" id="how-grid">
       <article class="card how-card" style="view-transition-name: how-1">
         <button class="how-toggle" type="button" aria-expanded="false" aria-controls="how-more-1">
           <div class="num">01</div><h4>Find the experts</h4>
@@ -478,7 +532,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
             <li>Spokespeople, CEOs, presidents and officials. They aren't independent experts, so they start unticked.</li>
             <li>Organizations that look like names (“the nonprofit Public Citizen”).</li>
             <li>You can edit any name or affiliation, add someone it missed, and check up to five.</li></ul></div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
       <article class="card how-card" style="view-transition-name: how-2">
@@ -495,7 +549,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
             <li>Candidate records are listed with their institutions.</li>
             <li>“This is them” re-checks the record's surname against the expert before searching.</li>
             <li>Why so strict? A common name matched to the wrong person is a false accusation.</li></ul></div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
       <article class="card how-card" style="view-transition-name: how-3">
@@ -512,7 +566,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
             <li>In “J.L. reports grants from A; M.O. reports fees from B”, only B belongs to M.O.</li>
             <li>“Declares no competing interests” is never a tie. Every quote is checked against its page.</li></ul></div>
           <div class="example"><b>Then it sorts them.</b> Ties to companies named in the story come first. Ties the article already disclosed are folded away. Spellings like “AstraZeneca” and “Astra Zeneca” are merged.</div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
       <article class="card how-card" style="view-transition-name: how-4">
@@ -528,7 +582,7 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
             <li>Create a tie on its own. It only supports one found in papers or bios.</li>
             <li>Show a badge when several physicians with that name were paid. That's ambiguous, so it's withheld.</li>
             <li>Prove identity. Open Payments lists location, not employer, so check the city.</li></ul></div>
-          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-how">Close</button></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
         </div>
       </article>
     </div>
@@ -536,16 +590,72 @@ footer p { margin: 0 0 6px; max-width: 80ch; }
 
   <section class="block" id="limits" aria-labelledby="limits-h">
     <div class="section-head"><h2 id="limits-h">What it can't do.</h2></div>
-    <p class="lead">Conflict Check is built to never accuse the wrong person. That means it says less, not more, when the evidence is thin.</p>
-    <div class="limits">
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></div>
-        <h4>Ties never disclosed</h4><p>It finds connections disclosed somewhere else, in papers, bios and payment records. A tie that was never written down anywhere can't be found.</p></div>
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8h5M19.5 5.5v5"/></svg></div>
-        <h4>People with common names</h4><p>If ORCID can't single out one person, nothing is searched until you pick the right record. Experts without a research record often can't be confirmed.</p></div>
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5S9.2 10 12 10s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></div>
-        <h4>Payment records</h4><p>CMS Open Payments covers US physicians only, and matches by name and location, not employer. It's shown as supporting evidence, never as proof.</p></div>
-      <div class="card"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
-        <h4>Up to five experts</h4><p>Each article is limited to five experts to keep searches focused. “No confirmed connections” is a normal, honest result.</p></div>
+    <p class="lead">Conflict Check is built to never accuse the wrong person. That means it says less, not more, when the evidence is thin. Click a limit to see what it means in practice.</p>
+    <div class="limits xgrid" id="limits-grid">
+      <article class="card how-card" style="view-transition-name: lim-1">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-1">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></div>
+          <h4>Ties never disclosed</h4><p>It finds connections disclosed somewhere else, in papers, bios and payment records. A tie that was never written down anywhere can't be found.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="lim-more-1" hidden>
+          <div><h5>What it can miss</h5><ul>
+            <li>Ties that were never disclosed in any paper, bio or filing.</li>
+            <li>Disclosures behind paywalls, in PDFs search can't read, or on pages search doesn't index.</li>
+            <li>Disclosures written in unusual ways, such as a table instead of sentences.</li></ul></div>
+          <div><h5>How to read a clean result</h5><ul>
+            <li>“No confirmed connections” means no evidence was found. It doesn't prove there are no ties.</li>
+            <li>For an important story, check the expert's own recent papers and the journal's disclosure forms too.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: lim-2">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-2">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8h5M19.5 5.5v5"/></svg></div>
+          <h4>People with common names</h4><p>If ORCID can't single out one person, nothing is searched until you pick the right record. Experts without a research record often can't be confirmed.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="lim-more-2" hidden>
+          <div><h5>Who is hard to confirm</h5><ul>
+            <li>Common names, where several researchers share the name and affiliation.</li>
+            <li>Clinicians, officials and industry staff, who often have no ORCID record at all.</li>
+            <li>Experts quoted without an affiliation, so there's nothing to match against.</li></ul></div>
+          <div><h5>What you can do</h5><ul>
+            <li>Fill in the affiliation in the review step, then check again.</li>
+            <li>Pick the right person from the candidates. The record's surname is re-checked first.</li>
+            <li>If no record fits, the expert stays “Identity not confirmed”. That's on purpose.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: lim-3">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-3">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 2v20M17 6.5c0-1.9-2.2-3.5-5-3.5s-5 1.6-5 3.5S9.2 10 12 10s5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/></svg></div>
+          <h4>Payment records</h4><p>CMS Open Payments only covers US clinicians, and matches by name and location, not employer. It's shown as supporting evidence, never as proof.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="lim-more-3" hidden>
+          <div><h5>What the data covers</h5><ul>
+            <li>Payments from drug and device makers to US physicians, teaching hospitals and, since 2021, some other prescribers such as nurse practitioners and physician assistants.</li>
+            <li>Conflict Check looks at the 2024 and 2025 general payments. Companies report these, and the figures can be disputed.</li>
+            <li>Researchers outside the US, and payments from non-manufacturers, aren't in it.</li></ul></div>
+          <div><h5>Why it's only a badge</h5><ul>
+            <li>Records list name, city and state, not employer, so a name match can be a different person.</li>
+            <li>The badge only appears on a tie already found in papers or bios, and it's withheld when several physicians match.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
+      <article class="card how-card" style="view-transition-name: lim-4">
+        <button class="how-toggle" type="button" aria-expanded="false" aria-controls="lim-more-4">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
+          <h4>Up to five experts</h4><p>Each article is limited to five experts to keep searches focused. “No confirmed connections” is a normal, honest result.</p>
+          <span class="open-hint">Read more ›</span></button>
+        <div class="more" id="lim-more-4" hidden>
+          <div><h5>Why five</h5><ul>
+            <li>Each expert takes several searches. Five keeps a check quick and within free API limits.</li>
+            <li>Most health stories quote two to four outside experts.</li></ul></div>
+          <div><h5>Checking more</h5><ul>
+            <li>In the review step, untick some experts and tick others, then check again.</li>
+            <li>Spokespeople and officials start unticked because they aren't independent experts. You can still tick them.</li></ul></div>
+          <div class="close-row"><button class="btn secondary small" type="button" data-act="close-card">Close</button></div>
+        </div>
+      </article>
     </div>
   </section>
 
@@ -854,7 +964,7 @@ document.addEventListener("click", ev => {
     const input = state.mode === "url" ? $("url") : $("text");
     input.focus({ preventScroll: true }); input.select();
   }
-  else if (act === "close-how") toggleHow(b.closest(".how-card"), false);
+  else if (act === "close-card") toggleHow(b.closest(".how-card"), false);
 });
 
 function errorBox(msg, retryAct) {
@@ -890,10 +1000,13 @@ function downloadReport() {
   toast(masked ? "Masked report downloaded." : "Report downloaded.");
 }
 
-/* ---------- How it works: expand with a view transition ---------- */
+/* ---------- expandable cards (How it works, Limits): view transitions ---------- */
+// One open card per section; each section (.xgrid) is independent.
+let lastOpened = null;  // Esc closes this one when focus isn't inside a card
 function toggleHow(card, open) {
+  if (open) lastOpened = card;
   const apply = () => {
-    for (const c of document.querySelectorAll(".how-card")) {
+    for (const c of card.closest(".xgrid").querySelectorAll(".how-card")) {
       const on = c === card && open;
       c.classList.toggle("expanded", on);
       c.querySelector(".how-toggle").setAttribute("aria-expanded", on);
@@ -914,14 +1027,16 @@ function focusHow(card, open) {
   const a = document.activeElement;
   if (!a || a === document.body || card.contains(a)) card.querySelector(".how-toggle").focus({ preventScroll: true });
 }
-$("how-grid").addEventListener("click", ev => {
+for (const grid of document.querySelectorAll(".xgrid")) grid.addEventListener("click", ev => {
   const t = ev.target.closest(".how-toggle"); if (!t) return;
   const card = t.closest(".how-card"); toggleHow(card, !card.classList.contains("expanded"));
 });
 document.addEventListener("keydown", ev => {
   if (ev.key !== "Escape") return;
   if (ev.target.closest?.("input, textarea, select, [contenteditable]")) return;  // Esc while typing isn't for the cards
-  const open = document.activeElement?.closest?.(".how-card.expanded") || document.querySelector(".how-card.expanded");
+  // Close the card you're in; otherwise the one opened most recently.
+  const open = document.activeElement?.closest?.(".how-card.expanded") || lastOpened?.closest(".how-card.expanded")
+    || document.querySelector(".how-card.expanded");
   if (open) toggleHow(open, false);
 });
 

@@ -40,7 +40,8 @@ CACHE = os.path.join(ROOT, "cache")
 
 
 def load_env(path: str = os.path.join(ROOT, ".env")) -> None:
-    if not os.path.exists(path):
+    # CC_NO_DOTENV=1 ignores .env (the e2e walk uses it to run a server with no API keys).
+    if os.environ.get("CC_NO_DOTENV") or not os.path.exists(path):
         return
     with open(path, encoding="utf-8") as f:
         for line in f:

@@ -11,7 +11,8 @@ Python 3.10+, no third-party packages.
 ```sh
 cp .env.example .env              # add TAVILY_API_KEY and EXA_API_KEY
 python -m conflict_check.server   # http://localhost:8000
-python -m unittest                # 12 offline tests (fictional fixtures)
+python -m unittest                # offline tests (fictional fixtures)
+python tests/e2e/walk.py          # browser walk-through (needs Edge/Chrome and a running server)
 ```
 
 ORCID and CMS Open Payments are free public APIs and need no key.
