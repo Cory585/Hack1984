@@ -1,11 +1,25 @@
 [
-  {
-    "id": "fixture-fictional",
-    "text_file": "tests/fixtures/article.txt",
-    "experts": {
-      "Maren Okafor": [],
-      "Tobias Wren": []
-    },
-    "note": "Fictional placeholder. Replace with ~20 hand-checked health-news articles (CMAJ 2017 method: compare quoted experts against their own paper disclosures)."
-  }
+ {
+  "id": "fixture-fictional",
+  "text_file": "tests/fixtures/article.txt",
+  "experts": {
+   "Maren Okafor": [],
+   "Tobias Wren": []
+  },
+  "note": "Fictional placeholder. Replace with ~20 hand-checked health-news articles (CMAJ 2017 method: compare quoted experts against their own paper disclosures)."
+ },
+ {
+  "id": "nbc-statin-2026",
+  "url": "https://www.nbcnews.com/health/heart-health/statin-side-effects-muscles-rare-cholesterol-medication-new-study-rcna351811",
+  "experts": {
+   "Sadiya Khan": {
+    "affiliation": "Northwestern University",
+    "ties": [
+     "National Institutes of Health",
+     "American Heart Association"
+    ]
+   }
+  },
+  "note": "Only the ties verified word-for-word on the ESC 365 speaker page (grants from NIH and AHA). Not a complete label: other experts in the article are unlabelled and left out."
+ }
 ]

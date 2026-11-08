@@ -4,6 +4,8 @@
 
 testset.json: list of cases
   {"id": "...", "url": "..." | "text_file": "path", "experts": {"Full Name": ["Org A", "Org B"]}}
+An expert may instead be {"affiliation": "Institution", "ties": ["Org A"]}: the affiliation is what the
+tool confirms identity against (the UI asks a person for it; the extractor often can't find one).
 Each expert maps to the undisclosed ties a human confirmed ([] = should find nothing).
 Reports tie precision/recall and how often the tool declines (identity not confirmed).
 """
@@ -35,9 +37,13 @@ def main() -> None:
             with open(case["text_file"], encoding="utf-8") as f:
                 text = f.read()
         s = Session(cache_dir=cache_dir(), replay=args.replay)
-        result = check_article(s, url=case.get("url"), text=text)
+        specs = {n: (v if isinstance(v, dict) else {"ties": v}) for n, v in case["experts"].items()}
+        reviewed = ([{"name": n, "affiliation": v.get("affiliation")} for n, v in specs.items()]
+                    if any(v.get("affiliation") for v in specs.values()) else None)
+        result = check_article(s, url=case.get("url"), text=text, experts=reviewed)
         got = {e["name"]: e for e in result["experts"]}
-        for name, expected in case["experts"].items():
+        for name, spec in specs.items():
+            expected = spec["ties"]
             experts += 1
             e = got.get(name)
             if not e or e["status"] in ("identity_not_confirmed", "error"):
