@@ -67,7 +67,7 @@ try:
     status = b.js("Object.fromEntries([...document.querySelectorAll('.result')].map(c => [c.dataset.card, c.querySelector('.chip').className.replace('chip ', '')]))")
     check("Buse: connections found", status.get("John Buse") == "connections_found", str(status))
     check("McCoy: connections found", status.get("Rozalina McCoy") == "connections_found", str(status))
-    check("Drucker: identity not confirmed", status.get("Daniel Drucker") == "identity_not_confirmed", str(status))
+    check("Drucker: confirmed through OpenAlex", status.get("Daniel Drucker") == "connections_found", str(status))
     check("no error cards", "error" not in status.values(), str(status))
     calls = b.js("[...document.querySelectorAll('#calls .call .meta')].map(m => m.className.replace('meta ', ''))")
     check("every API call came from the cache", calls and set(calls) == {"cache"}, str(sorted(set(calls))))
@@ -80,7 +80,7 @@ try:
     b.js("document.querySelector(\"" + buse + " .tie details.why\").open = true")
     check("'Why?' lists the seven factors", b.js("document.querySelector(\"" + buse + " .tie details.why .factors\").children.length") == 7)
     check("coverage rating shown", b.js("!!document.querySelector(\"" + buse + " .coverage .rel\")"))
-    check("Drucker card explains how to pick a person", b.js("!!document.querySelector(\"[data-card='Daniel Drucker']\").innerText.match(/ORCID|pick|candidate/i)"))
+    check("Drucker card says how identity was confirmed", b.js("!!document.querySelector(\"[data-card='Daniel Drucker']\").innerText.match(/OpenAlex/i)"))
     b.js("document.getElementById('results-block').scrollIntoView()"); time.sleep(0.3); b.shot(SP + "/replay-2-results.png")
     b.js("document.querySelector(\"" + buse + "\").scrollIntoView()"); time.sleep(0.3); b.shot(SP + "/replay-3-buse.png")
 

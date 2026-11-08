@@ -1,0 +1,1 @@
+{"request": {"method": "GET", "url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&first_name=Daniel&last_name=Drucker&enumeration_type=NPI-1&limit=11", "body": null}, "response": {"result_count": 0, "results": []}}
