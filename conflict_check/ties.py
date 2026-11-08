@@ -19,7 +19,8 @@ TIE = re.compile(
     r"research\s+(?:funding|support)|funded\s+by|funding\s+from|personal\s+fees|"
     r"received\s+(?:fees|funding|payments|support)|employee|employed\s+by|employment|"
     r"stock|shares|equity|stockholder|shareholder|board\s+of\s+directors|director\s+of|"
-    r"patents?|royalt(?:y|ies)|co-?founder|founder|paid\s+by|sponsored\s+by|travel\s+(?:support|expenses))\b",
+    r"patents?|royalt(?:y|ies)|co-?founder|founder|paid\s+by|sponsored\s+by|travel\s+(?:support|expenses)|"
+    r"fees\s+(?:from|for)|payments?\s+from)\b",
     re.I,
 )
 CATEGORIES = [
@@ -32,7 +33,7 @@ CATEGORIES = [
     ("board", r"board of directors|director of"),
     ("patents / royalties", r"patent|royalt"),
     ("founder", r"founder"),
-    ("personal fees", r"personal fees|received|travel"),
+    ("personal fees", r"personal fees|received|travel|fees|payment"),
 ]
 NEGATION = re.compile(
     r"\b(?:no\s+(?:relevant\s+|potential\s+|other\s+|financial\s+|competing\s+|conflicts?\s+of\s+)*"
@@ -43,11 +44,12 @@ NEGATION = re.compile(
 EXCEPTION = re.compile(r"\b(?:except|other\s+than|apart\s+from|besides|aside\s+from)\b", re.I)
 PRONOUN_START = re.compile(r"^(?:He|She|They|His|Her|Their)\b")
 
-ORG_RUN = re.compile(r"(?:[A-Z][\w&'’\-]*)(?:\s+(?:of|for|&|[A-Z][\w&'’\-]*)){0,6}")
+ORG_RUN = re.compile(r"(?:[A-Z][\w&'’\-]*)(?:\s+(?:of|for|&|do|da|de|[A-Z][\w&'’\-]*)){0,6}")  # "Eli Lilly do Brasil"
 ABBREV = re.compile(r"(?:\b(?:Dr|Prof|Mr|Ms|Mrs|St|Inc|Co|Corp|Ltd|al|vs|No)|\b[A-Z])\.$")
 SUBJECT_VERB = (r"(?:reports?|reported|has|have|had|received|receives|is|was|serves?|served|declares?|"
                 r"holds?|held|owns?|consults?|consulted|acts?|acted|discloses?|disclosed|works?|worked)")
-INITIALS = r"(?:[A-Z]\.\s?){2,4}|[A-Z]{2,3}\b"
+# Author initials as used in disclosure statements: "J.L.", "JL", "JFKS", "SvLS" (with a lowercase particle).
+INITIALS = r"(?:[A-Z]\.\s?){2,5}|[A-Z](?:[a-z]?[A-Z]){1,5}\b"
 SUBJECT = rf"(?:(?:Drs?\.?|Prof\.?|Professor|Mr\.?|Ms\.?)\s+)?(?:{INITIALS}|[A-Z][a-z]+(?:\s+[A-Z]{{1,2}}\b)?)"
 SEGMENT_SPLIT = re.compile(rf"(?:,\s*|\s+)(?:and\s+|while\s+|whereas\s+|but\s+)?(?={SUBJECT}\s+{SUBJECT_VERB}\b)")
 
@@ -70,7 +72,9 @@ GENERIC = {
     "association", "society", "group", "labs", "laboratories", "center", "centre", "national", "of",
     "for", "the", "and", "school", "college", "medical", "medicine", "hospital", "research", "sciences",
 }
-CONNECTORS = {"of", "for", "the", "and", "&"}
+CONNECTORS = {"of", "for", "the", "and", "&", "do", "da", "de"}
+PARTICLES = {"da", "de", "do", "dos", "das", "van", "von", "der", "den", "del", "della", "di", "du", "le", "la", "bin"}
+SUFFIXES = {"jr", "junior", "júnior", "filho", "neto", "sobrinho", "ii", "iii", "iv", "sr"}
 
 
 def norm_ws(s: str) -> str:
@@ -81,15 +85,34 @@ def verify_quote(quote: str, page_text: str) -> bool:
     return bool(quote) and norm_ws(quote) in norm_ws(page_text)
 
 
-def split_clauses(text: str) -> list[str]:
-    raw = re.split(r"(?<=[.!?;])\s+|\n+", text)
+# Sentence ends: punctuation + space, a newline, or punctuation glued straight onto the next
+# sentence ("…Novo Nordisk.JFKS has received…"), which happens when page text is extracted.
+SENT_SPLIT = re.compile(r"(?<=[.!?])\s+|(?<=[a-z0-9)\]][.!?])(?=[A-Z])|\n+"
+                        rf"|(?<=[.!?])(?=(?:{INITIALS})\s+{SUBJECT_VERB}\b)")  # "…and MSD.FV has received…"
+
+
+def split_sentences(text: str) -> list[str]:
     out: list[str] = []
-    for piece in raw:
-        if out and ABBREV.search(out[-1]):
+    for piece in SENT_SPLIT.split(text):
+        piece = piece.strip()
+        if not piece:
+            continue
+        # Keep "Dr. Okafor" together, and don't start a sentence in lowercase ("Dr. Oliva. has …").
+        if out and (ABBREV.search(out[-1]) or piece[0].islower()):
             out[-1] = f"{out[-1]} {piece}"
-        elif piece.strip():
+        else:
             out.append(piece)
-    return [c.strip() for c in out if c.strip()]
+    return out
+
+
+def split_clauses(text: str) -> list[str]:
+    """Sentences, further cut at semicolons."""
+    return [p.strip() for s in split_sentences(text) for p in s.split(";") if p.strip()]
+
+
+def starts_with_subject(part: str) -> bool:
+    """True if the clause opens with its own subject: 'J.L. reports…', 'Dr Lee has…'."""
+    return bool(re.match(rf"\s*(?:and\s+)?{SUBJECT}\s+{SUBJECT_VERB}\b", part))
 
 
 def segments(clause: str) -> list[str]:
@@ -125,6 +148,23 @@ def same_org(a: str, b: str) -> bool:
     return bool(ta and tb) and (ta <= tb or tb <= ta)
 
 
+def compact(org: str) -> str:
+    """'Astra-Zeneca', 'Astra Zeneca', 'AstraZeneca' -> 'astrazeneca'."""
+    return re.sub(r"[^a-z0-9]", "", " ".join(distinctive_tokens(org)).lower())
+
+
+def same_company(a: str, b: str) -> bool:
+    """Looser match used to merge spellings of one company: 'Lilly' / 'Eli Lilly',
+    'Novo Nordisk' / 'NovoNordisk'. Short names (< 4 letters) must match exactly."""
+    ca, cb = compact(a), compact(b)
+    if not ca or not cb:
+        return False
+    if ca == cb or same_org(a, b):
+        return True
+    short, long_ = sorted((ca, cb), key=len)
+    return len(short) >= 4 and short in long_
+
+
 def category(keyword: str) -> str:
     k = keyword.lower()
     return next((name for name, pat in CATEGORIES if re.search(pat, k)), "other")
@@ -133,13 +173,17 @@ def category(keyword: str) -> str:
 def person_patterns(name: str) -> tuple[re.Pattern, re.Pattern]:
     """(strong, clause): strong proves the page is about this person; clause attributes a statement."""
     parts = name.split()
-    first, last = parts[0], parts[-1]
+    first = parts[0]
+    # Initials skip particles ("Ruy Lyra da Silva Filho" -> RLSF); the surname skips suffixes too.
+    core = [p for p in parts if p.lower() not in PARTICLES]
+    named = [p for p in core if p.lower().rstrip(".") not in SUFFIXES]
+    last = named[-1] if len(named) > 1 else parts[-1]
     L, F = re.escape(last), re.escape(first)
     strong = re.compile(
-        rf"\b{F}\s+(?:[A-Z]\.?\s+)?{L}\b|\b{first[0]}\.\s*(?:[A-Z]\.\s*)?{L}\b|\b{L},\s+{F}\b"
-        rf"|\b{L},?\s+{first[0]}\.?(?:[A-Z]\.?)?(?![a-z])"
+        rf"\b{F}\s+(?:\S+\s+){{0,3}}{L}\b|\b{first[0]}\.\s*(?:[A-Z]\.\s*){{0,3}}{L}\b|\b{L},\s+{F}\b"
+        rf"|\b{L},?\s+{first[0]}\.?(?:[A-Z]\.?){{0,3}}(?![a-z])"
     )
-    initials = r"\.?\s?".join(p[0] for p in parts)
+    initials = r"\.?\s?".join(p[0] for p in core)
     clause = re.compile(rf"\b{L}\b|(?<![A-Za-z]){initials}\.?(?![A-Za-z])")
     return strong, clause
 
@@ -164,8 +208,12 @@ def orgs_in(text: str, person: str) -> list[tuple[str, int]]:
             continue
         if any(t.lower().strip(".,") in person_toks for t in toks):
             continue
-        if re.fullmatch(INITIALS, org) or re.fullmatch(r"(?:[A-Z]\.?){1,4}", org):  # someone's initials
+        if re.fullmatch(r"(?:[A-Z]\.\s?){1,5}|[A-Z]", org):  # dotted initials: "J.L."
             continue
+        if re.fullmatch(r"[A-Z]+[a-z][A-Z]+", org):  # mixed-case initials: "SvLS"
+            continue
+        if re.fullmatch(INITIALS, org) and re.match(rf"\s+{SUBJECT_VERB}\b", text[m.end():]):
+            continue  # "JFKS has received": a person, not a company (GSK in a list is kept)
         if not distinctive_tokens(org):
             continue
         out.append((org, m.start()))
@@ -180,17 +228,36 @@ def keyword_for(seg: str, pos: int) -> str:
 
 
 def person_statements(text: str, name: str) -> list[tuple[str, str]]:
-    """(statement, clause) pairs about this person: their own segments, plus he/she/they
-    sentences that directly follow a sentence naming them."""
+    """(statement, quote) pairs about this person. A statement counts when it:
+      * names the person (surname or initials) in its own segment, or
+      * continues their sentence after a semicolon without a new subject
+        ("Dr X has received fees from A; personal fees from B"), or
+      * starts with he/she/they right after a sentence about them.
+    The quote is the whole sentence when short enough, else the clause."""
     _, clause_pat = person_patterns(name)
     out, prev_about = [], False
-    for clause in split_clauses(text):
-        about = False
-        for seg in segments(clause):
-            if clause_pat.search(seg) or (prev_about and PRONOUN_START.match(seg)):
-                out.append((seg, clause))
-                about = True
-        prev_about = about or (prev_about and bool(PRONOUN_START.match(clause)))
+    for sent in split_sentences(text):
+        sent_about = False
+        carry = prev_about and bool(PRONOUN_START.match(sent))  # "She serves on …" after a sentence about them
+        for part in (p.strip() for p in sent.split(";")):
+            if not part:
+                continue
+            quote = sent if len(sent) <= 600 else part[:600]
+            # A pronoun continues the current person; any other opening subject starts someone new.
+            new_subject = starts_with_subject(part) and not PRONOUN_START.match(part)
+            ours = False
+            for i, seg in enumerate(segments(part)):
+                if clause_pat.search(seg):
+                    ours = True
+                elif i == 0:
+                    ours = carry and not new_subject
+                else:
+                    ours = False  # a later segment introduced someone else
+                if ours:
+                    out.append((seg, quote))
+                    sent_about = True
+            carry = ours  # the next semicolon part continues whoever this part ended on
+        prev_about = sent_about
     return out
 
 
@@ -198,28 +265,36 @@ def find_ties(pages: list[dict], name: str, exclude_orgs: list[str] | None = Non
     """pages: [{url, title, text, api}] -> deduped ties, each with verified evidence."""
     exclude_orgs = [o for o in (exclude_orgs or []) if o]
     strong, _ = person_patterns(name)
-    ties: dict[str, dict] = {}
+    ties: list[dict] = []
     for page in pages:
         text = page.get("text") or ""
         if not strong.search(text):
             continue  # page isn't demonstrably about this person
-        for seg, clause in person_statements(text, name):
+        for seg, quote in person_statements(text, name):
             kw = TIE.search(seg)
             if not kw or (NEGATION.search(seg) and not EXCEPTION.search(seg)):
                 continue
-            quote = clause[:600]
             if not verify_quote(quote, text):
                 continue
             for org, pos in orgs_in(seg, name):
                 if any(same_org(org, ex) for ex in exclude_orgs):
                     continue
-                key = " ".join(t.lower() for t in distinctive_tokens(org))
                 rel = keyword_for(seg, pos)
-                tie = ties.setdefault(key, {"org": org, "relation": rel, "category": category(rel), "evidence": []})
+                # Merge spellings of one company ("AstraZeneca" / "Astra Zeneca", "Lilly" / "Eli Lilly").
+                tie = next((t for t in ties if same_company(t["org"], org)), None)
+                if tie is None:
+                    tie = {"org": org, "relation": rel, "category": category(rel), "evidence": [], "aliases": []}
+                    ties.append(tie)
+                elif org != tie["org"] and org not in tie["aliases"]:
+                    tie["aliases"].append(org)
+                    if len(org) > len(tie["org"]):  # show the fullest spelling
+                        tie["aliases"].append(tie["org"])
+                        tie["aliases"].remove(org)
+                        tie["org"] = org
                 if not any(ev["url"] == page.get("url") for ev in tie["evidence"]):
                     tie["evidence"].append({"url": page.get("url"), "title": page.get("title"),
                                             "api": page.get("api"), "quote": quote, "verified": True})
-    return list(ties.values())
+    return ties
 
 
 def classify_tie(tie: dict, article: str, surname: str) -> dict:
