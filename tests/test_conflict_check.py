@@ -148,9 +148,36 @@ class TestPipeline(unittest.TestCase):
         s = self.session(fetcher=fake_fetcher(1), on_call=calls.append)
         check_article(s, text=ARTICLE, experts=[{"name": "Okafor"}, {"name": "Maren Okafor",
                       "affiliation": "Lakeside University"}], on_event=events.append)
-        self.assertEqual([e["type"] for e in events], ["start", "expert"])
+        # ties arrive first (badges pending), then one update with the Open Payments badges added
+        self.assertEqual([e["type"] for e in events], ["start", "expert", "update"])
         self.assertEqual(events[0]["experts"], ["Maren Okafor"])
         self.assertEqual(calls, s.calls)
+
+    def test_early_result_has_ties_without_badges_then_update_adds_them(self):
+        events = []
+        s = self.session(fetcher=fake_fetcher(1))
+        result = check_article(s, text=ARTICLE, experts=[{"name": "Maren Okafor", "affiliation": "Lakeside University"}],
+                               on_event=events.append)
+        early, final = events[1]["expert"], events[2]["expert"]
+        self.assertTrue(early["badges_pending"])
+        self.assertTrue(early["ties"])
+        self.assertTrue(all(t["open_payments"] is None for t in early["ties"]))
+        self.assertNotIn("badges_pending", final)
+        self.assertEqual(final, result["experts"][0])
+        self.assertEqual([t["org"] for t in early["ties"]] and sorted(t["org"] for t in early["ties"]),
+                         sorted(t["org"] for t in final["ties"]))
+
+    def test_no_early_event_when_open_payments_is_off(self):
+        import os
+        events = []
+        os.environ["OPEN_PAYMENTS"] = "off"
+        try:
+            check_article(self.session(fetcher=fake_fetcher(1)), text=ARTICLE,
+                          experts=[{"name": "Maren Okafor", "affiliation": "Lakeside University"}],
+                          on_event=events.append)
+        finally:
+            del os.environ["OPEN_PAYMENTS"]
+        self.assertEqual([e["type"] for e in events], ["start", "expert"])
 
     def test_replay_miss(self):
         with self.assertRaises(ReplayMiss):
@@ -159,3 +186,25 @@ class TestPipeline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InputValidationTests(unittest.TestCase):
+    def test_bad_experts_and_urls_are_value_errors(self):
+        s = Session(cache_dir="unused", replay=True)
+        for bad in ("Eric Topol", [1, None], {"name": "x"}):
+            with self.assertRaises(ValueError):
+                check_article(s, text="hi", experts=bad)
+        for url in ("not a url", "ftp://x.org/a", "http://", "javascript:alert(1)"):
+            with self.assertRaises(ValueError):
+                check_article(s, url=url)
+
+    def test_odd_field_types_do_not_crash(self):
+        s = Session(cache_dir="unused", replay=True)
+        r = check_article(s, text="hi", experts=[{"name": 5, "affiliation": 7, "orcid": 1}])
+        self.assertEqual(r["experts"], [])
+
+    def test_duplicate_experts_are_checked_once(self):
+        from conflict_check.pipeline import experts_from_request
+        dup = {"name": "Maria Okafor", "affiliation": "Lakeside"}
+        got = experts_from_request([dup, dict(dup, name="maria  okafor"), {"name": "Tobias Wren"}])
+        self.assertEqual([e.name for e, _ in got], ["Maria Okafor", "Tobias Wren"])

@@ -1,12 +1,15 @@
 """Article -> experts -> identity check -> evidence search -> verified ties -> Open Payments badges."""
 from __future__ import annotations
 
+import copy
+import re
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 from .clients import exa_search, tavily_extract, tavily_search
 from .extract import Expert, extract_experts
 from .identity import identity_from_pick, resolve_identity
-from .openpayments import badge_for_tie
+from .openpayments import badge_for_tie, datasets
 from .reliability import rate_expert
 from .session import Session
 from .ties import classify_tie, find_ties, person_patterns, surname
@@ -24,6 +27,9 @@ def load_article(s: Session, url: str | None, text: str | None) -> dict:
         return {"url": url, "text": text.strip(), "source": "pasted"}
     if not url:
         raise ValueError("Provide an article URL or paste its text.")
+    if not re.match(r"https?://[^\s/]+\.[^\s/]+", url.strip(), re.I):
+        raise ValueError("That doesn't look like an article URL (it should start with http:// or https://). Paste the text instead.")
+    url = url.strip()
     results = tavily_extract(s, [url])
     if not results or not results[0].get("raw_content"):
         raise ValueError("Tavily couldn't extract that article; paste the text instead.")
@@ -46,14 +52,20 @@ def find_experts(s: Session, url: str | None = None, text: str | None = None) ->
 
 def experts_from_request(items: list[dict]) -> list[tuple[Expert, str | None]]:
     """[{name, affiliation?, role?, orcid?}] as edited in the UI -> (Expert, picked ORCID)."""
-    out = []
+    if not isinstance(items, list) or not all(isinstance(it, dict) for it in items):
+        raise ValueError("experts must be a list of {name, affiliation} objects.")
+    out, seen = [], set()
     for it in items:
-        name = " ".join((it.get("name") or "").split())
+        name = " ".join(str(it.get("name") or "").split())
         if len(name.split()) < 2:
             continue  # need a first and last name to search safely
-        e = Expert(name=name, role=(it.get("role") or None), affiliation=(it.get("affiliation") or "").strip() or None,
+        key = (name.casefold(), str(it.get("affiliation") or "").strip().casefold(), str(it.get("orcid") or "").strip())
+        if key in seen:
+            continue  # the same person listed twice would cost a second round of API calls
+        seen.add(key)
+        e = Expert(name=name, role=(it.get("role") or None), affiliation=str(it.get("affiliation") or "").strip() or None,
                    context=it.get("context") or "", signals=["user"] if it.get("added") else ["reviewed"])
-        out.append((e, (it.get("orcid") or "").strip() or None))
+        out.append((e, str(it.get("orcid") or "").strip() or None))
     return out
 
 
@@ -61,10 +73,13 @@ def gather_pages(s: Session, name: str, affiliation: str | None) -> list[dict]:
     """Exa research-paper search (papers carry conflict statements) + Tavily web search/extract."""
     aff = affiliation or ""
     pages: list[dict] = []
-    for r in exa_search(s, f'"{name}" {aff} competing interests disclosure', 5, "research paper"):
+    with ThreadPoolExecutor(max_workers=2) as pool:  # the two searches don't depend on each other
+        exa_f = pool.submit(exa_search, s, f'"{name}" {aff} competing interests disclosure', 5, "research paper")
+        tav_f = pool.submit(tavily_search, s, f'"{name}" {aff} consultant OR "advisory board" OR "conflict of interest"', 5)
+        exa_hits, hits = exa_f.result(), tav_f.result()
+    for r in exa_hits:
         pages.append({"url": r.get("url"), "title": r.get("title"), "text": r.get("text") or "", "api": "exa",
                       "published": r.get("publishedDate")})
-    hits = tavily_search(s, f'"{name}" {aff} consultant OR "advisory board" OR "conflict of interest"', 5)
     seen = {p["url"] for p in pages}
     urls = [h["url"] for h in hits if h.get("url") and h["url"] not in seen][:5]
     meta = {h.get("url"): h for h in hits}
@@ -79,15 +94,41 @@ def gather_pages(s: Session, name: str, affiliation: str | None) -> list[dict]:
     return pages
 
 
+# Open Payments lists drug and device makers. Universities, agencies and programs never appear in it.
+NOT_PAYERS = re.compile(r"\b(?:university|universit\w+|institutes?|hospital|clinic|college|school|foundation|"
+                        r"initiative|program|health|service|center|centre|division|department|society|"
+                        r"association|nih|nhs|nsf|fda|cdc|award|council|academy)\b", re.I)
+MAX_BADGES = 8  # each Open Payments lookup can take 30 s, so check only the best-evidenced ties
+
+
+def badge_targets(ties: list[dict]) -> list[dict]:
+    """The ties worth an Open Payments lookup: company-like names, best-evidenced first."""
+    if not datasets():
+        return []
+    return sorted((t for t in ties if not NOT_PAYERS.search(t["org"])),
+                  key=lambda t: len(t["evidence"]), reverse=True)[:MAX_BADGES]
+
+
 def add_badges(s: Session, name: str, ties: list[dict]) -> None:
     for t in ties:
+        t["open_payments"] = None
+    todo = badge_targets(ties)
+
+    def badge(t: dict) -> None:
         try:
             t["open_payments"] = badge_for_tie(s, name, t["org"])
         except Exception as err:  # a slow or failed badge never blocks the result
             t["open_payments"] = {"status": "error", "note": str(err)[:200]}
 
+    if todo:
+        with ThreadPoolExecutor(max_workers=len(todo)) as pool:
+            list(pool.map(badge, todo))
 
-def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: str | None = None) -> dict:
+
+def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: str | None = None,
+                 on_partial: Callable[[dict], None] | None = None) -> dict:
+    """With `on_partial`, the ties are reported as soon as the searches finish (flagged `badges_pending`),
+    then the slow Open Payments badges are added and the finished result is returned."""
     out = expert.to_dict()
     ident = (identity_from_pick(s, expert.name, picked_orcid) if picked_orcid
              else resolve_identity(s, expert.name, expert.affiliation))
@@ -103,13 +144,18 @@ def check_expert(s: Session, expert: Expert, article_text: str, picked_orcid: st
     last = surname(expert.name)  # skips suffixes: "John Smith Jr" -> Smith, matching how the article refers to him
     ties = [classify_tie(t, article_text, last)
             for t in find_ties(pages, expert.name, exclude_orgs=[expert.affiliation])]
-    add_badges(s, expert.name, ties)
     out["pages_checked"] = len(pages)
     out["ties"] = [t for t in ties if not t["disclosed_in_article"]]
     out["disclosed"] = [t for t in ties if t["disclosed_in_article"]]
     out["status"] = "connections_found" if out["ties"] else "no_confirmed_connections"
-    # Scores every tie, re-orders out["ties"] / out["disclosed"] in place (status above only depends on
-    # whether there are ties, not their order) and adds out["coverage"].
+    # Scores every tie, re-orders out["ties"] / out["disclosed"] in place and adds out["coverage"]. With
+    # on_partial, the ties go out first (badges pending); Open Payments then adds a bonus and we re-rate.
+    if on_partial and badge_targets(ties):
+        for t in ties:
+            t["open_payments"] = None
+        rate_expert(out, pages)
+        on_partial(dict(copy.deepcopy(out), badges_pending=True))
+    add_badges(s, expert.name, ties)
     rate_expert(out, pages)
     return out
 
@@ -132,13 +178,19 @@ def check_article(s: Session, url: str | None = None, text: str | None = None,
 
     results = []
     for e, orcid in todo:
+        early = []
+
+        def partial(r: dict) -> None:
+            early.append(r)
+            emit({"type": "expert", "expert": r})
+
         try:
-            r = check_expert(s, e, article["text"], orcid)
+            r = check_expert(s, e, article["text"], orcid, on_partial=partial)
         except Exception as err:  # keep going: one failed expert shouldn't sink the report
             r = e.to_dict()
             r.update(status="error", error=str(err), ties=[], disclosed=[])
         results.append(r)
-        emit({"type": "expert", "expert": r})
+        emit({"type": "update" if early else "expert", "expert": r})
 
     return {
         "article": {"url": article["url"], "source": article["source"], "chars": len(article["text"])},

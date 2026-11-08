@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 
 from .clients import open_payments_query
 from .session import Session
@@ -74,8 +75,11 @@ def badge_for_tie(s: Session, name: str, org: str) -> dict | None:
     first, last = parts[0], parts[-1]
     needle = max(toks, key=len)
     rows: list[dict] = []
-    for year, ds in sets.items():
-        for r in open_payments_query(s, ds, year, first, last, needle):
-            r["_year"] = year
-            rows.append(r)
+    with ThreadPoolExecutor(max_workers=len(sets)) as pool:  # one query per year, side by side
+        futures = {year: pool.submit(open_payments_query, s, ds, year, first, last, needle)
+                   for year, ds in sets.items()}
+        for year, f in futures.items():
+            for r in f.result():
+                r["_year"] = year
+                rows.append(r)
     return summarize(rows, org)

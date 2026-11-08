@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -27,7 +28,7 @@ class MissingKey(Exception):
     pass
 
 
-def urllib_fetcher(method: str, url: str, headers: dict, body: Any) -> Any:
+def urllib_fetcher(method: str, url: str, headers: dict, body: Any, timeout: int = 45) -> Any:
     data = None
     headers = {"User-Agent": "conflict-check/0.1", "Accept": "application/json", **headers}
     if body is not None:
@@ -35,7 +36,7 @@ def urllib_fetcher(method: str, url: str, headers: dict, body: Any) -> Any:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:300]
@@ -58,6 +59,7 @@ class Session:
         self.tavily_key = tavily_key if tavily_key is not None else os.environ.get("TAVILY_API_KEY")
         self.exa_key = exa_key if exa_key is not None else os.environ.get("EXA_API_KEY")
         self.calls: list[dict] = []
+        self._lock = threading.Lock()  # calls are logged from worker threads
         self.on_call = on_call  # e.g. stream each call to the UI's API panel as it happens
 
     def key(self, api: str) -> str:
@@ -97,14 +99,15 @@ class Session:
         return data
 
     def _log(self, api: str, label: str, source: str, t0: float, error: str | None = None) -> None:
-        call = {
-            "n": len(self.calls) + 1,
-            "api": api,
-            "label": label,
-            "source": source,  # live | cache | miss | error
-            "ms": round((time.perf_counter() - t0) * 1000),
-            "error": error,
-        }
-        self.calls.append(call)
-        if self.on_call:
-            self.on_call(call)
+        with self._lock:
+            call = {
+                "n": len(self.calls) + 1,
+                "api": api,
+                "label": label,
+                "source": source,  # live | cache | miss | error
+                "ms": round((time.perf_counter() - t0) * 1000),
+                "error": error,
+            }
+            self.calls.append(call)
+            if self.on_call:
+                self.on_call(call)

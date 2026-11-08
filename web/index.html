@@ -1045,6 +1045,7 @@ function handle(ev, run) {
     }
   }
   else if (ev.type === "expert") { state.results[ev.expert.name] = ev.expert; run.idx++; updateCard(ev.expert.name); }
+  else if (ev.type === "update") { state.results[ev.expert.name] = ev.expert; updateCard(ev.expert.name); }  // Open Payments badges arrived
   else if (ev.type === "done") {
     saveResult();
     if (run.full) showBanner(state.swrKey && $("banner").textContent ? "Up to date." : "", true);
@@ -1260,6 +1261,7 @@ function cardHtml(e) {
     ${related.map(t => tieHtml(t, "")).join("")}
     ${other.length ? `<details><summary>${other.length} other connection${other.length === 1 ? "" : "s"}, not named in this story</summary>${other.map(t => tieHtml(t, "other")).join("")}</details>` : ""}
     ${(e.disclosed || []).length ? `<details><summary>${e.disclosed.length} connection${e.disclosed.length === 1 ? "" : "s"} the article disclosed</summary>${e.disclosed.map(t => tieHtml(t, "disc")).join("")}</details>` : ""}
+    ${e.badges_pending ? `<p class="hint"><span class="spinner" aria-hidden="true"></span> Checking CMS Open Payments. Scores may change.</p>` : ""}
     ${e.coverage ? coverageHtml(e) : e.pages_checked != null ? `<p class="hint">${e.pages_checked} pages checked.</p>` : ""}
     ${actions.length ? `<div class="card-actions">${actions.join("")}</div>` : ""}
   </article>`;
