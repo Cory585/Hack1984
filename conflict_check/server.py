@@ -26,6 +26,14 @@ from .session import Session
 
 MAX_BODY = 2_000_000  # 2 MB is plenty for an article plus an expert list
 
+
+class BadRequest(Exception):
+    """A request we refuse before doing any work; carries its HTTP status (400 or 413)."""
+
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web", "index.html")
 CACHE = os.path.join(ROOT, "cache")
@@ -67,10 +75,21 @@ class Handler(BaseHTTPRequestHandler):
         self._send(code, json.dumps(obj).encode("utf-8"), "application/json", cache)
 
     def _body(self) -> dict:
-        n = int(self.headers.get("Content-Length") or 0)
+        """Read the JSON body. Never trusts Content-Length blindly: a negative or non-numeric length
+        is rejected before reading (rfile.read(-1) would block the thread), and an oversize body is
+        refused with 413 without reading it. Both close the connection so no unread bytes linger."""
+        raw = (self.headers.get("Content-Length") or "0").strip()
+        if not raw.isdigit():
+            self.close_connection = True
+            raise BadRequest(400, "invalid Content-Length")
+        n = int(raw)
         if n > MAX_BODY:
-            raise ValueError(f"request too large (limit {MAX_BODY // 1000} kB)")
-        return json.loads(self.rfile.read(n) or b"{}")
+            self.close_connection = True
+            raise BadRequest(413, f"request too large (limit {MAX_BODY // 1_000_000} MB)")
+        try:
+            return json.loads(self.rfile.read(n) or b"{}")
+        except ValueError:
+            raise BadRequest(400, "invalid JSON")
 
     def _session(self, req: dict, **kw) -> Session:
         if req.get("demo"):
@@ -97,8 +116,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             req = self._body()
-        except ValueError as e:
-            return self._json(400, {"error": str(e) if "too large" in str(e) else "invalid JSON"})
+        except BadRequest as e:
+            return self._json(e.code, {"error": str(e)})
         if not isinstance(req, dict):
             return self._json(400, {"error": "expected a JSON object"})
         if self.path == "/api/check/stream":
